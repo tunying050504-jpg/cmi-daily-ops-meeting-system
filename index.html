@@ -2737,18 +2737,27 @@ function toggleAttendance(idx) {
 }
 
 function addAttendee() {
+  // This base version is superseded by the manual-add-attendee-firebase-final-fix patch.
+  // Kept as fallback only — the patched window.addAttendee runs instead.
   const name = document.getElementById('att-new-name').value.trim();
   const dept = document.getElementById('att-new-dept').value.trim();
   const role = document.getElementById('att-new-role').value.trim();
   if(!name) { showNotif('Please enter a name.'); return; }
+  // 10:00 AM cutoff: same rule as toggleAttendance
+  const now = new Date();
+  const cutoff = new Date(now); cutoff.setHours(10,0,0,0);
+  const autoStatus = now > cutoff ? 'late' : 'present';
+  const time = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const people = getData('att_people');
-  people.push({name, dept, role, present:false, status:'absent'});
+  people.push({name, dept, role, present: true, status: autoStatus, scanTime: time, timeIn: time, scannedAt: now.toISOString(), attendanceSource:'Manual Add Attendee'});
   setData('att_people', people);
   document.getElementById('att-new-name').value = '';
   document.getElementById('att-new-dept').value = '';
   document.getElementById('att-new-role').value = '';
   renderAttendance();
-  showNotif(name + ' added!');
+  const label = autoStatus.toUpperCase();
+  const note  = autoStatus === 'late' ? ' (past 10:00 AM)' : ' (on time)';
+  showNotif(name + ' added — marked ' + label + note);
 }
 
 function saveAttendance() {
@@ -7286,6 +7295,14 @@ window.addEventListener('load',()=>{
     return cleanRecord;
   }
 
+  // Determine present/late based on 10:00 AM cutoff — same rule as toggleAttendance
+  function isLateNowManual(){
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setHours(10, 0, 0, 0);
+    return now > cutoff;
+  }
+
   window.addAttendee = async function(){
     const nameEl = document.getElementById('att-new-name');
     const deptEl = document.getElementById('att-new-dept');
@@ -7297,6 +7314,10 @@ window.addEventListener('load',()=>{
 
     const date = selectedDate();
     const time = selectedTime();
+
+    // Auto-determine status: past 10:00 AM = Late, at/before 10:00 AM = Present
+    const autoStatus = isLateNowManual() ? 'late' : 'present';
+
     const record = {
       date,
       time,
@@ -7305,7 +7326,7 @@ window.addEventListener('load',()=>{
       dept: department,
       role,
       position: role,
-      status: 'present',
+      status: autoStatus,
       present: true,
       scanTime: time,
       timeIn: time,
@@ -7325,7 +7346,7 @@ window.addEventListener('load',()=>{
       role,
       position: role,
       present: true,
-      status: 'present',
+      status: autoStatus,
       scanTime: time,
       timeIn: time,
       time,
@@ -7351,14 +7372,16 @@ window.addEventListener('load',()=>{
     window.renderQRScanHistory?.();
     window.renderDashboard?.();
 
+    const statusLabel = autoStatus.toUpperCase();
+    const timeNote = autoStatus === 'late' ? ' (past 10:00 AM — marked Late)' : ' (on time — marked Present)';
     try{
       const onlineRecord = await saveOnline(record);
       if(typeof window.__cmiApplyOnlineAttendanceRows === 'function') window.__cmiApplyOnlineAttendanceRows(date, [onlineRecord]);
-      notify(name + ' added, marked PRESENT, and saved online for ' + date + '.');
+      notify(name + ' added, marked ' + statusLabel + timeNote + ', and saved online for ' + date + '.');
       setTimeout(() => window.cmiStartFirebaseAttendanceSync?.(date), 250);
     }catch(e){
       console.error(e);
-      notify(name + ' was added on this device, but online sync failed: ' + e.message, true);
+      notify(name + ' added and marked ' + statusLabel + timeNote + '. Online sync failed: ' + e.message, true);
     }
   };
 
