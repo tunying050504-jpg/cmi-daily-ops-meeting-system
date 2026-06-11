@@ -8155,18 +8155,33 @@ window.addEventListener('load',()=>{
   margin-right: auto !important;
 }
 
-/* 6. Responsive */
+/* 6. Responsive — CRITICAL: undo the flex width:0 trick on mobile
+   because .layout becomes display:block, not flex, so width:0 collapses .main */
 @media (max-width: 1024px) {
-  .main { padding: 20px 24px !important; }
-}
-@media (max-width: 768px) {
-  .main { padding: 14px 16px !important; }
+  .main {
+    padding: 16px !important;
+    display: block !important;   /* no longer a flex child */
+    width: 100% !important;      /* override width:0 */
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .page {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
   .page > *,
   #page-qr > *, #page-analytics > *,
   #page-actions > *, #page-reports > *,
   #page-users > *, #page-export > * {
     max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
+}
+@media (max-width: 480px) {
+  .main { padding: 10px !important; }
 }
 </style>
 
