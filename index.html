@@ -10231,82 +10231,100 @@ button,.btn,.nav-item,.att-card{touch-action:manipulation;-webkit-tap-highlight-
 (function(){
   'use strict';
 
-  function _lsGet(key){ try{ var v = localStorage.getItem(key); return v ? JSON.parse(v) : []; }catch(e){ return []; } }
-  function _lsSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('[Save Attendance] localStorage write failed:', e); } }
-
-  function _selectedDate(){
+  /* --- helpers ---------------------------------------------------------- */
+  function _date(){
     var el = document.getElementById('att-date');
-    if(el && el.value) return el.value;
-    var today = new Date();
-    return today.toLocaleDateString('en-CA');
+    return (el && el.value) ? el.value : new Date().toLocaleDateString('en-CA');
   }
 
-  function _getPeople(){
-    var keys = ['att_people','ops_attendance_people'];
-    for(var i=0; i<keys.length; i++){
-      var list = _lsGet(keys[i]);
-      if(Array.isArray(list) && list.length) return list;
-    }
-    return [];
+  function _lsRead(key){
+    try{ var v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : []; }catch(e){ return []; }
   }
 
-  function _normPeople(people){
-    return people.map(function(p){
-      var s = (p.status || (p.present ? 'present' : 'absent')).toLowerCase();
-      if(s !== 'present' && s !== 'late') s = 'absent';
-      return Object.assign({}, p, { status:s, present: s==='present'||s==='late' });
+  function _lsWrite(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+    try{ if(typeof window.setData === 'function') window.setData(key, val); }catch(e){}
+  }
+
+  function _readPeople(){
+    var a = _lsRead('att_people');
+    var b = _lsRead('ops_attendance_people');
+    return (a.length >= b.length) ? a : b;
+  }
+
+  function _normPeople(list){
+    return list.map(function(p){
+      var raw = (p.status || (p.present ? 'present' : 'absent')).toLowerCase();
+      var s = (raw === 'present' || raw === 'late') ? raw : 'absent';
+      return Object.assign({}, p, { status: s, present: s === 'present' || s === 'late' });
     });
   }
 
-  function _showSaved(date){
-    /* Try the app's built-in notif first */
-    if(typeof window.showNotif === 'function'){
-      window.showNotif('Attendance saved for ' + date + '.');
-      return;
+  function _toast(msg){
+    if(typeof window.showNotif === 'function'){ window.showNotif(msg); return; }
+    var t = document.getElementById('_att_fix_toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = '_att_fix_toast';
+      t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f5132;color:#fff;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.25);z-index:10000;pointer-events:none;transition:opacity .3s;opacity:0;';
+      document.body.appendChild(t);
     }
-    /* Fallback: inline toast */
-    var toast = document.getElementById('_att_save_toast');
-    if(!toast){
-      toast = document.createElement('div');
-      toast.id = '_att_save_toast';
-      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f5132;color:#fff;padding:12px 22px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.22);z-index:9999;transition:opacity .3s;';
-      document.body.appendChild(toast);
-    }
-    toast.textContent = '✓ Attendance saved for ' + date;
-    toast.style.opacity = '1';
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(function(){ toast.style.opacity = '0'; }, 3000);
+    t.textContent = '✓ ' + msg;
+    t.style.opacity = '1';
+    clearTimeout(t.__hide);
+    t.__hide = setTimeout(function(){ t.style.opacity = '0'; }, 3000);
   }
 
-  function _doSave(){
-    var date = _selectedDate();
-    var people = _normPeople(_getPeople());
+  /* Remove "deleted" markers so the record shows up in history table */
+  function _unmarkDeleted(date){
+    var dateStr = String(date);
+    var keys = [
+      'cmi_deleted_attendance_dates',
+      'cmi_deleted_attendance_dates_v2',
+      'cmi_att_deleted_dates',
+      'att_deleted_dates'
+    ];
+    keys.forEach(function(k){
+      try{
+        var arr = JSON.parse(localStorage.getItem(k) || '[]');
+        if(!Array.isArray(arr)) return;
+        var cleaned = arr.filter(function(d){ return String(d) !== dateStr; });
+        if(cleaned.length !== arr.length) localStorage.setItem(k, JSON.stringify(cleaned));
+      }catch(e){}
+    });
+    try{ if(typeof window.unmarkDeletedLocal === 'function') window.unmarkDeletedLocal(dateStr); }catch(e){}
+  }
 
-    /* Write current people to all known people keys */
-    _lsSet('att_people', people);
-    _lsSet('ops_attendance_people', people);
+  /* --- core save -------------------------------------------------------- */
+  function _save(){
+    var date   = _date();
+    var people = _normPeople(_readPeople());
 
-    /* Update records */
-    var records = _lsGet('att_records').filter(function(r){ return String(r && r.date) !== String(date); });
-    records.push({ date:date, people:JSON.parse(JSON.stringify(people)), savedAt:new Date().toISOString(), source:'Saved attendance' });
+    /* 0. Clear deleted markers for this date */
+    _unmarkDeleted(date);
+
+    /* 1. Persist current people state */
+    _lsWrite('att_people', people);
+    _lsWrite('ops_attendance_people', people);
+
+    /* 2. Build updated records list and write DIRECTLY to localStorage
+          (bypasses any isDeleted filter inside setData wrappers) */
+    var snapshot = { date: date, people: JSON.parse(JSON.stringify(people)), savedAt: new Date().toISOString(), source: 'Saved attendance' };
+    var records  = _lsRead('att_records').filter(function(r){ return r && String(r.date) !== String(date); });
+    records.push(snapshot);
     records.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
-    _lsSet('att_records', records);
 
-    /* Sync to setData if available (keeps Firebase hooks intact) */
-    if(typeof window.setData === 'function'){
-      try{ window.setData('att_people', people); }catch(e){}
-      try{ window.setData('att_records', records); }catch(e){}
-    }
+    try{ localStorage.setItem('att_records', JSON.stringify(records)); }catch(e){}
+    try{ if(typeof window.setData === 'function') window.setData('att_records', records); }catch(e){}
 
-    /* Re-render UI */
+    /* 3. Refresh UI */
     try{ window.renderAttendance && window.renderAttendance(); }catch(e){}
     try{ window.renderAttendanceHistory && window.renderAttendanceHistory(); }catch(e){}
 
-    _showSaved(date);
+    _toast('Attendance saved for ' + date + '.');
   }
 
-  /* Override saveAttendance as the absolute final version */
-  window.saveAttendance = _doSave;
+  window.saveAttendance = _save;
 
 })();
 </script>
