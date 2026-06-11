@@ -1194,6 +1194,81 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
 }
 </style>
 
+<style id="cmi-mobile-device-fix">
+/* ── Responsive two-column grid used in dashboard and export ── */
+.dash-two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Login screen fully device-friendly ── */
+@media(max-width:600px){
+  #login-screen{padding:14px!important;}
+  .login-card{padding:22px 18px!important;border-radius:20px!important;}
+  .login-title{font-size:25px!important;}
+  .login-demo-grid{grid-template-columns:1fr!important;}
+  .auth-tabs{grid-template-columns:1fr 1fr!important;}
+}
+
+/* ── Collapse two-col grids on phones ── */
+@media(max-width:680px){
+  .dash-two-col-grid{grid-template-columns:1fr!important;gap:12px!important;}
+}
+
+/* ── Ensure all inline style grids inside .main collapse on mobile ── */
+@media(max-width:1024px){
+  /* Any hard-coded 2-col inline grid inside main pages AND modals */
+  .main > div[id^="page"] [style*="grid-template-columns:1fr 1fr"],
+  .main [style*="grid-template-columns:1fr 1fr"],
+  .modal [style*="grid-template-columns:1fr 1fr"],
+  .att-detail-modal [style*="grid-template-columns:1fr 1fr"],
+  #detail-body [style*="grid-template-columns"]{
+    grid-template-columns:1fr!important;
+  }
+  /* Prevent horizontal overflow from wide containers */
+  .main,#page-dashboard,#page-entry,#page-records,#page-analytics,
+  #page-concerns,#page-attendance,#page-employees,#page-actions,
+  #page-reports,#page-users,#page-export,#page-qr{
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+  /* Keep card content from breaking out */
+  .card,.kpi-card{
+    min-width:0!important;
+    overflow:hidden!important;
+    word-break:break-word!important;
+  }
+  /* Page-header action buttons: stack cleanly */
+  .page-header{
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:12px!important;
+  }
+  .page-header > div:last-child > .btn,
+  .page-header .btn{
+    width:100%!important;
+    justify-content:center!important;
+  }
+  /* Search bars stack vertically */
+  .search-bar{flex-direction:column!important;}
+  .search-bar input,.search-bar select{width:100%!important;}
+  /* Role chip dropdowns inside tables */
+  select.role-chip{font-size:12px!important;max-width:140px!important;}
+}
+
+/* ── Very small phones (≤420px) ── */
+@media(max-width:420px){
+  .dash-two-col-grid{grid-template-columns:1fr!important;}
+  .kpi-grid{grid-template-columns:1fr!important;}
+  .main{padding:10px!important;}
+  .card{padding:14px!important;}
+  .page-title{font-size:21px!important;}
+  .btn{font-size:12px!important;padding:8px 14px!important;}
+  table{min-width:620px!important;}
+}
+</style>
+
 </head>
 <body class="login-required">
 
@@ -1215,7 +1290,6 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="login-error" id="login-error">Invalid username/Gmail or password.</div>
         <button class="login-btn" type="submit">Log In</button>
       </form>
-      <div class="login-demo-box"><strong>Built-in system accounts:</strong><div class="login-demo-grid"><div class="login-chip">admin<br><strong>admin123</strong></div><div class="login-chip">supervisor<br><strong>ops2026</strong></div></div>Or register your own account below. All accounts are synced in real time across all devices via Firebase.</div>
       <div class="login-footer" id="login-sync-footer">🔄 Connecting to cloud... <button type="button" class="secondary-link-btn" onclick="showAuthPanel('register')">Register here</button></div>
     </div>
 
@@ -1368,7 +1442,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
       </div>
 
       <!-- summary of all concerns (need pa rin iimprove ng kaunti) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="dash-two-col-grid">
         <div class="card">
           <div class="card-title">Active Concerns <span class="badge" id="concern-count">0</span></div>
           <div id="dash-concerns-list"><p style="color:var(--text-muted);font-size:13px;">No concerns logged yet. Use the Concerns Log to add items.</p></div>
@@ -1968,14 +2042,31 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Gmail</th><th>Username</th><th>Department</th><th>Role</th><th>Action</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="card-title">Role Rules</div>
-        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">Administrator can manage users, delete records, and export all data. Supervisor can encode, edit, approve, and export operational records. Registered User can encode and view data for personal/local use. Viewer can only review dashboards, records, analytics, and reports.</p>
+        <div class="card-title">Role Access Rules</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+          <div style="background:linear-gradient(135deg,#f0faf4,#e4f5ec);border:1.5px solid rgba(7,92,54,.18);border-left:6px solid #0f6b3c;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">🛡 Administrator</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can manage users, delete records, and export all data.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#fffbea,#fff8d4);border:1.5px solid rgba(245,200,0,.45);border-left:6px solid #c9a200;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">⚙ Supervisor</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode, edit, approve, and export operational records.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#f4faf6,#edf7f1);border:1.5px solid rgba(7,92,54,.14);border-left:6px solid #20a36a;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👤 Registered User</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode and view data for personal/local use.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#f8f8f8,#f0f0f0);border:1.5px solid rgba(0,0,0,.10);border-left:6px solid #888;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👁 Viewer</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can only review dashboards, records, analytics, and reports.</div>
+          </div>
+        </div>
       </div>
     </div>
 
     <div id="page-export" class="page">
       <div class="page-header"><div class="page-title">Export & Print</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div class="dash-two-col-grid">
         <div class="card">
           <div class="card-title">Export Options</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
@@ -3562,10 +3653,23 @@ window.addEventListener('load',()=>{
   function activeUserText(){ return localStorage.getItem('ops_demo_user') || 'Guest / Viewer'; }
   window.getCurrentUserInfo = function(){
     const stored = activeUserText();
+    // ops_current_user_role is written at login from the matched user record.
+    // Always trust it as the session role — Firebase listener sync can overwrite
+    // ops_registered_users with stale data, making found.role unreliable.
+    const sessionRole = localStorage.getItem('ops_current_user_role') || '';
     const all = (typeof getAllLoginUsers === 'function' ? getAllLoginUsers() : []);
     const name = stored.split(' / ')[0];
-    const found = all.find(u => (u.fullname || u.username) === name || stored.includes(u.username || ''));
-    const role = found ? (found.role || 'Registered User') : (stored.includes('Administrator') ? 'Administrator' : stored.includes('Supervisor') ? 'Supervisor' : stored.includes('Viewer') ? 'Viewer' : 'Registered User');
+    const found = all.find(u =>
+      (u.fullname || u.username) === name ||
+      (u.username && u.username.length > 0 && stored.includes(u.username))
+    );
+    const fallbackRole = found
+      ? (found.role || 'Registered User')
+      : (stored.includes('Administrator') ? 'Administrator'
+          : stored.includes('Supervisor') ? 'Supervisor'
+          : stored.includes('Viewer') ? 'Viewer'
+          : 'Registered User');
+    const role = sessionRole || fallbackRole;
     return { display: stored, name, role, department: found ? found.department : '' };
   };
   window.hasRole = function(roles){ return roles.includes(getCurrentUserInfo().role); };
@@ -3768,7 +3872,25 @@ window.addEventListener('load',()=>{
   // User management
   function renderUsersTableSafe(){ if(!document.getElementById('users-table-body')) return; renderUsersTable(); }
   window.renderUsersTable=function(){ const body=document.getElementById('users-table-body'); if(!body) return; const users=typeof getRegisteredUsers==='function'?getRegisteredUsers():[]; if(!users.length){ body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>'; return; } body.innerHTML=users.map((u,i)=>`<tr><td>${u.fullname}</td><td>${u.email}</td><td>${u.username}</td><td>${u.department}</td><td><select class="role-chip" onchange="updateRegisteredUserRole(${i},this.value)" ${canAdmin()?'':'disabled'}><option ${u.role==='Registered User'?'selected':''}>Registered User</option><option ${u.role==='Supervisor'?'selected':''}>Supervisor</option><option ${u.role==='Viewer'?'selected':''}>Viewer</option><option ${u.role==='Administrator'?'selected':''}>Administrator</option></select></td><td>${canAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(${i})">Delete</button>`:'—'}</td></tr>`).join(''); };
-  window.updateRegisteredUserRole=function(i,role){ if(!canAdmin()) return; const users=getRegisteredUsers(); if(users[i]){ users[i].role=role; saveRegisteredUsers(users); renderUsersTable(); showNotif('User role updated.'); }};
+  window.updateRegisteredUserRole=function(i,role){
+    if(!canAdmin()) return;
+    const users=getRegisteredUsers();
+    if(users[i]){
+      users[i].role=role;
+      saveRegisteredUsers(users);
+      // If the updated user is the currently logged-in user, keep the session role in sync
+      const me = getCurrentUserInfo();
+      if((users[i].fullname && users[i].fullname === me.name) ||
+         (users[i].username && me.display.includes(users[i].username))){
+        localStorage.setItem('ops_current_user_role', role);
+        const demoStr = localStorage.getItem('ops_demo_user') || '';
+        const base = demoStr.split(' / ')[0];
+        localStorage.setItem('ops_demo_user', base + ' / ' + role);
+      }
+      renderUsersTable();
+      showNotif('User role updated.');
+    }
+  };
   window.deleteRegisteredUser=function(i){ if(!canAdmin()) return; const users=getRegisteredUsers(); users.splice(i,1); saveRegisteredUsers(users); renderUsersTable(); };
 
   function applyRoleUI(){ document.body.classList.toggle('hide-admin-only', !canAdmin()); }
@@ -8033,18 +8155,33 @@ window.addEventListener('load',()=>{
   margin-right: auto !important;
 }
 
-/* 6. Responsive */
+/* 6. Responsive — CRITICAL: undo the flex width:0 trick on mobile
+   because .layout becomes display:block, not flex, so width:0 collapses .main */
 @media (max-width: 1024px) {
-  .main { padding: 20px 24px !important; }
-}
-@media (max-width: 768px) {
-  .main { padding: 14px 16px !important; }
+  .main {
+    padding: 16px !important;
+    display: block !important;   /* no longer a flex child */
+    width: 100% !important;      /* override width:0 */
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .page {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
   .page > *,
   #page-qr > *, #page-analytics > *,
   #page-actions > *, #page-reports > *,
   #page-users > *, #page-export > * {
     max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
+}
+@media (max-width: 480px) {
+  .main { padding: 10px !important; }
 }
 </style>
 
@@ -8470,6 +8607,25 @@ window.addEventListener('load',()=>{
         var fbUsers = JSON.parse(raw._data);
         if(!Array.isArray(fbUsers)) return;
         var local = localReadUsers();
+
+        // ── Guard: preserve the role of the currently logged-in user ──
+        // Firebase sync must never silently downgrade an active session role.
+        var sessionRole = localStorage.getItem('ops_current_user_role') || '';
+        var sessionUser = localStorage.getItem('ops_current_user_data') || '';
+        if(sessionRole && sessionUser){
+          try{
+            var su = JSON.parse(sessionUser);
+            fbUsers = fbUsers.map(function(fu){
+              var isMe = (su.username && fu.username === su.username) ||
+                         (su.email    && fu.email    === su.email);
+              if(isMe && fu.role !== sessionRole){
+                fu = Object.assign({}, fu, { role: sessionRole });
+              }
+              return fu;
+            });
+          }catch(e){}
+        }
+
         // Only update if Firebase has newer or more users
         var fbStr = JSON.stringify(fbUsers);
         var localStr = JSON.stringify(local);
@@ -8604,560 +8760,6 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
-
-
-
-<!-- ================================================================
-     FINAL USER REQUEST FIX — Non-destructive multi-device sync + mobile page navigation
-     Build: 2026-06-11
-     Purpose:
-       1) Prevent stale devices from overwriting/deleting attendance and system data.
-       2) Push manual attendance as individual Firebase child records.
-       3) Make phone navigation show the correct page instead of staying on Dashboard.
-     ================================================================ -->
-<style id="cmi-final-mobile-page-navigation-fix-20260611">
-  .page{display:none!important;}
-  .page.active{display:block!important;}
-  @media(max-width:1024px){
-    .main{display:block!important;width:100%!important;}
-    .layout{display:block!important;}
-    .page{width:100%!important;min-height:calc(100dvh - 150px)!important;}
-    .mobile-bottom-nav{grid-template-columns:repeat(5,1fr)!important;}
-  }
-</style>
-<script id="cmi-final-non-destructive-sync-mobile-fix-20260611">
-(function(){
-  'use strict';
-
-  var FIREBASE_CONFIG = window.firebaseConfig || {
-    apiKey: "AIzaSyBZHEnPAQQfRcX7XnDgJEjul960_tOOMgo",
-    authDomain: "cmi-ops-meeting-system.firebaseapp.com",
-    databaseURL: "https://cmi-ops-meeting-system-default-rtdb.firebaseio.com",
-    projectId: "cmi-ops-meeting-system",
-    storageBucket: "cmi-ops-meeting-system.firebasestorage.app",
-    messagingSenderId: "62540183757",
-    appId: "1:62540183757:web:e2aef42ebb517ad61ed184",
-    measurementId: "G-BQEGXMVXY0"
-  };
-
-  var SYNC_KEYS = [
-    'ops_records','ops_concerns','att_records','att_people','ops_attendance_people',
-    'ops_action_plans','ops_employees','ops_registered_users','ops_qr_scan_history'
-  ];
-  var ATT_KEYS = {'att_people':true,'ops_attendance_people':true};
-  var nativeSetItem = Storage.prototype.setItem;
-  var nativeGetItem = Storage.prototype.getItem;
-  var nativeRemoveItem = Storage.prototype.removeItem;
-  var pushTimers = {};
-  var pullTimers = {};
-  var attendanceTimer = null;
-  var listenersStarted = false;
-  var liveAttendanceRef = null;
-  var liveAttendanceCb = null;
-
-  function todayISO(){ return new Date().toLocaleDateString('en-CA'); }
-  function selectedDate(){
-    return document.getElementById('att-date')?.value ||
-           document.getElementById('dept-qr-date')?.value ||
-           todayISO();
-  }
-  function safeParse(value, fallback){
-    try{
-      var parsed = JSON.parse(value || '[]');
-      return Array.isArray(parsed) ? parsed : (fallback || []);
-    }catch(e){ return fallback || []; }
-  }
-  function readRaw(key){ return safeParse(nativeGetItem.call(localStorage, key), []); }
-  function writeRaw(key, val){ nativeSetItem.call(localStorage, key, JSON.stringify(Array.isArray(val) ? val : [])); }
-  function norm(v){ return String(v == null ? '' : v).trim().toLowerCase(); }
-  function filled(v){ return v !== undefined && v !== null && String(v).trim() !== ''; }
-  function statusOf(p){
-    var st = norm(p && p.status);
-    if(st === 'present' || st === 'late') return st;
-    return (p && p.present) ? 'present' : 'absent';
-  }
-  function isMarked(p){ var st=statusOf(p); return st === 'present' || st === 'late'; }
-  function stampOf(p){
-    var s = p && (p.updatedAt || p.createdAt || p.scannedAt || p.savedAt || p.departmentQRDate || '');
-    var t = Date.parse(s || '');
-    return isNaN(t) ? 0 : t;
-  }
-  function getDefaults(){
-    return Array.isArray(window.DEFAULT_ATTENDEES) && window.DEFAULT_ATTENDEES.length ? window.DEFAULT_ATTENDEES : [
-      {name:'Plant Manager',dept:'Management',role:'Head'},
-      {name:'Production Manager 1',dept:'Production',role:'Manager'},
-      {name:'Production Manager 2',dept:'Production',role:'Manager'},
-      {name:'QA Manager',dept:'Quality Assurance',role:'Manager'},
-      {name:'Safety Officer',dept:'Safety',role:'Officer'},
-      {name:'Engineering Head',dept:'Engineering',role:'Head'},
-      {name:'Logistics Head',dept:'Logistics',role:'Head'},
-      {name:'HR Manager',dept:'Human Resources',role:'Manager'},
-      {name:'Sanitations Head',dept:'Sanitation',role:'Head'},
-      {name:'B-MIRK Coordinator',dept:'Agency',role:'Coordinator'},
-      {name:'EXPEDISE Coordinator',dept:'Agency',role:'Coordinator'}
-    ];
-  }
-  function blankDefault(d){
-    return Object.assign({}, d, {
-      present:false,status:'absent',scanTime:'',timeIn:'',time:'',scannedAt:'',createdAt:'',
-      qrValue:'',qrDepartment:'',departmentQRDate:'',attendanceSource:''
-    });
-  }
-  function mergeValue(oldVal, newVal){
-    if(!filled(newVal)) return oldVal;
-    return newVal;
-  }
-  function mergePerson(oldP, newP){
-    oldP = oldP || {};
-    newP = newP || {};
-    var oldStatus = statusOf(oldP);
-    var newStatus = statusOf(newP);
-    var oldMarked = oldStatus === 'present' || oldStatus === 'late';
-    var newMarked = newStatus === 'present' || newStatus === 'late';
-    var keepOldMark = oldMarked && !window.__cmiAllowDestructiveAttendanceWrite;
-    var newer = stampOf(newP) >= stampOf(oldP);
-    var base = Object.assign({}, oldP, newP);
-
-    base.name = mergeValue(oldP.name, newP.name) || mergeValue(newP.name, oldP.name) || 'Attendee';
-    base.dept = mergeValue(oldP.dept || oldP.department, newP.dept || newP.department || newP.qrDepartment) || '';
-    base.department = base.dept;
-    base.role = mergeValue(oldP.role || oldP.position, newP.role || newP.position) || '';
-
-    if(keepOldMark && !newMarked){
-      base.status = oldStatus;
-      base.present = true;
-    }else if(oldMarked && newMarked && !newer){
-      base.status = oldStatus;
-      base.present = true;
-    }else if(newMarked){
-      base.status = newStatus;
-      base.present = true;
-    }else if(oldMarked){
-      base.status = oldStatus;
-      base.present = true;
-    }else{
-      base.status = newStatus || oldStatus || 'absent';
-      base.present = base.status === 'present' || base.status === 'late';
-    }
-
-    ['scanTime','timeIn','time','scannedAt','createdAt','updatedAt','qrValue','qrDepartment','departmentQRDate','attendanceSource','firebaseKey'].forEach(function(k){
-      base[k] = mergeValue(oldP[k], newP[k]);
-    });
-    if(!base.scanTime) base.scanTime = base.timeIn || base.time || '';
-    if(!base.timeIn) base.timeIn = base.scanTime || base.time || '';
-    if(!base.time) base.time = base.scanTime || base.timeIn || '';
-    return base;
-  }
-  function mergeRoster(a, b){
-    var map = Object.create(null);
-    var order = [];
-    function add(p){
-      if(!p) return;
-      var name = p.name || p.fullname || p.employeeName || p.attendee;
-      if(!filled(name)) return;
-      p = Object.assign({}, p, {name:name});
-      var k = norm(name);
-      if(!map[k]){ map[k] = {}; order.push(k); }
-      map[k] = mergePerson(map[k], p);
-    }
-    getDefaults().forEach(function(d){ add(blankDefault(d)); });
-    (Array.isArray(a) ? a : []).forEach(add);
-    (Array.isArray(b) ? b : []).forEach(add);
-    var defaults = getDefaults().map(function(d){ return map[norm(d.name)] || blankDefault(d); });
-    var defaultNames = Object.create(null);
-    getDefaults().forEach(function(d){ defaultNames[norm(d.name)] = true; });
-    var extras = order.filter(function(k){ return !defaultNames[k]; }).map(function(k){ return map[k]; });
-    return defaults.concat(extras);
-  }
-  function deepMergeKeep(oldObj, newObj){
-    if(Array.isArray(oldObj) || Array.isArray(newObj)) return filled(newObj) ? newObj : oldObj;
-    if(typeof oldObj === 'object' && oldObj && typeof newObj === 'object' && newObj){
-      var out = Object.assign({}, oldObj);
-      Object.keys(newObj).forEach(function(k){ out[k] = deepMergeKeep(oldObj[k], newObj[k]); });
-      return out;
-    }
-    return filled(newObj) ? newObj : oldObj;
-  }
-  function recordKey(key, item){
-    item = item || {};
-    if(key === 'ops_records') return 'date:' + (item.date || item.id || item.savedAt || JSON.stringify(item));
-    if(key === 'ops_concerns') return 'concern:' + (item.id || [item.date,item.pillar,item.description,item.pic].map(norm).join('|'));
-    if(key === 'ops_action_plans') return 'action:' + (item.id || item.concernId || [item.date,item.action,item.pic,item.targetDate].map(norm).join('|'));
-    if(key === 'ops_employees') return 'emp:' + norm(item.id || item.qr || item.name);
-    if(key === 'ops_registered_users') return 'user:' + norm(item.username || item.email || item.fullname);
-    if(key === 'ops_qr_scan_history') return 'scan:' + [item.date,item.name,item.department || item.dept,item.scanType || item.qrValue].map(norm).join('|');
-    return 'item:' + (item.id || JSON.stringify(item));
-  }
-  function mergeGenericArray(key, a, b){
-    var map = Object.create(null), order = [];
-    function add(item){
-      if(!item || typeof item !== 'object') return;
-      var k = recordKey(key, item);
-      if(!map[k]){ map[k] = {}; order.push(k); }
-      map[k] = deepMergeKeep(map[k], item);
-    }
-    (Array.isArray(a) ? a : []).forEach(add);
-    (Array.isArray(b) ? b : []).forEach(add);
-    return order.map(function(k){ return map[k]; });
-  }
-  function mergeAttendanceRecords(a, b){
-    var map = Object.create(null), order = [];
-    function add(r){
-      if(!r || !r.date) return;
-      var k = String(r.date);
-      if(!map[k]){ map[k] = {date:r.date, people:[]}; order.push(k); }
-      var prev = map[k];
-      map[k] = Object.assign({}, prev, r, {
-        date:k,
-        people:mergeRoster(prev.people || [], r.people || []),
-        savedAt: mergeValue(prev.savedAt, r.savedAt) || new Date().toISOString(),
-        source: mergeValue(prev.source, r.source) || 'Non-destructive sync'
-      });
-    }
-    (Array.isArray(a) ? a : []).forEach(add);
-    (Array.isArray(b) ? b : []).forEach(add);
-    return order.map(function(k){ return map[k]; }).sort(function(x,y){ return String(y.date).localeCompare(String(x.date)); });
-  }
-  function smartMerge(key, current, incoming){
-    current = Array.isArray(current) ? current : [];
-    incoming = Array.isArray(incoming) ? incoming : [];
-    if(ATT_KEYS[key]) return mergeRoster(current, incoming);
-    if(key === 'att_records') return mergeAttendanceRecords(current, incoming);
-    return mergeGenericArray(key, current, incoming);
-  }
-
-  var protectedSnapshot = {};
-  SYNC_KEYS.forEach(function(k){ protectedSnapshot[k] = readRaw(k); });
-
-  Storage.prototype.setItem = function(k, v){
-    if(this === localStorage && SYNC_KEYS.indexOf(k) !== -1 && !window.__cmiAllowDestructiveAttendanceWrite){
-      try{
-        var incoming = safeParse(v, []);
-        var current = readRaw(k);
-        var merged = smartMerge(k, smartMerge(k, protectedSnapshot[k] || [], current), incoming);
-        protectedSnapshot[k] = merged;
-        return nativeSetItem.call(this, k, JSON.stringify(merged));
-      }catch(e){ console.warn('[CMI Safe Sync] setItem merge failed for', k, e); }
-    }
-    return nativeSetItem.call(this, k, v);
-  };
-  Storage.prototype.removeItem = function(k){
-    if(this === localStorage && SYNC_KEYS.indexOf(k) !== -1 && !window.__cmiAllowDestructiveAttendanceWrite){
-      console.warn('[CMI Safe Sync] Prevented accidental local deletion of', k);
-      return;
-    }
-    return nativeRemoveItem.call(this, k);
-  };
-
-  function getDb(){
-    try{
-      if(!window.firebase || !window.firebase.database) return null;
-      if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      return firebase.database();
-    }catch(e){ console.warn('[CMI Safe Sync] Firebase init failed', e); return null; }
-  }
-  function fbPath(key){ return 'cmiAppData/' + key; }
-  function safeKey(v){ return String(v || 'record').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'record'; }
-  function setStatus(msg, good){
-    var el = document.getElementById('firebase-sync-status');
-    if(el){ el.textContent = msg; el.style.color = good ? '#0f5132' : '#b42318'; el.style.fontWeight = '900'; }
-    var badge = document.getElementById('cmi-sync-badge');
-    if(badge){ badge.textContent = good ? '● Synced' : '○ Offline'; badge.className = good ? 'synced' : 'offline'; badge.title = msg; }
-    console.log('[CMI Safe Sync]', msg);
-  }
-  function triggerRenders(key){
-    var fns = {
-      ops_records:['renderDashboard','renderRecords','renderAnalytics'],
-      ops_concerns:['renderConcerns','renderConcernCount'],
-      att_records:['renderAttendanceHistory','renderDashboard'],
-      att_people:['renderAttendance','renderAttendanceHistory','renderDashboard'],
-      ops_attendance_people:['renderAttendance','renderAttendanceHistory','renderDashboard'],
-      ops_action_plans:['renderActionPlans','renderDashboard'],
-      ops_employees:['renderEmployeeMasterlist','renderQRScanHistory'],
-      ops_registered_users:['renderUsersTableSafe'],
-      ops_qr_scan_history:['renderQRScanHistory','renderAttendanceHistory']
-    }[key] || [];
-    setTimeout(function(){ fns.forEach(function(fn){ try{ window[fn]?.(); }catch(e){} }); }, 40);
-  }
-  function scheduleFirebaseMerge(key, val){
-    if(SYNC_KEYS.indexOf(key) === -1) return;
-    clearTimeout(pushTimers[key]);
-    pushTimers[key] = setTimeout(function(){ mergeToFirebase(key, val); }, 250);
-  }
-  function mergeToFirebase(key, val){
-    var db = getDb();
-    if(!db) return;
-    var localVal = Array.isArray(val) ? val : readRaw(key);
-    db.ref(fbPath(key)).transaction(function(current){
-      var remote = [];
-      if(current && typeof current._data === 'string') remote = safeParse(current._data, []);
-      var merged = smartMerge(key, remote, localVal);
-      return {_data:JSON.stringify(merged), _at:Date.now(), _merge:'non-destructive-20260611'};
-    }, function(error){
-      if(error){ console.warn('[CMI Safe Sync] Firebase merge failed for', key, error.message); setStatus('Sync warning: ' + error.message, false); }
-    }, false);
-  }
-  function pullAndMerge(key){
-    var db = getDb(); if(!db) return;
-    db.ref(fbPath(key)).once('value', function(snap){
-      var raw = snap.val();
-      if(!raw || typeof raw._data !== 'string') return;
-      var remote = safeParse(raw._data, []);
-      var local = readRaw(key);
-      var merged = smartMerge(key, local, remote);
-      writeRaw(key, merged);
-      protectedSnapshot[key] = merged;
-      triggerRenders(key);
-      if(JSON.stringify(merged) !== JSON.stringify(remote)) scheduleFirebaseMerge(key, merged);
-    });
-  }
-
-  window.setData = function(key, val){
-    var merged = smartMerge(key, readRaw(key), Array.isArray(val) ? val : []);
-    writeRaw(key, merged);
-    protectedSnapshot[key] = merged;
-    scheduleFirebaseMerge(key, merged);
-    if(ATT_KEYS[key]) scheduleAttendanceChildPush(selectedDate(), merged);
-  };
-  window.getData = function(key){ return readRaw(key); };
-
-  function scheduleAttendanceChildPush(date, roster){
-    clearTimeout(attendanceTimer);
-    attendanceTimer = setTimeout(function(){ pushAttendanceChildren(date || selectedDate(), roster || readRaw('att_people')); }, 300);
-  }
-  function pushAttendanceChildren(date, roster){
-    var db = getDb(); if(!db || !date) return;
-    roster = mergeRoster([], roster || []);
-    var updates = {};
-    roster.forEach(function(p){
-      if(!isMarked(p)) return;
-      var department = p.dept || p.department || p.qrDepartment || 'Unassigned';
-      var name = p.name || 'Attendee';
-      var k = safeKey(department + '_' + name);
-      updates[k] = {
-        date:date,
-        time:p.scanTime || p.timeIn || p.time || new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-        name:name,
-        department:department,
-        dept:department,
-        status:statusOf(p),
-        role:p.role || p.position || '',
-        position:p.role || p.position || '',
-        qrValue:p.qrValue || (p.attendanceSource === 'Manual attendance' ? 'MANUAL_ATTENDANCE' : ''),
-        scanType:p.attendanceSource || 'Manual attendance',
-        createdAt:p.scannedAt || p.createdAt || new Date().toISOString(),
-        updatedAt:new Date().toISOString(),
-        firebaseKey:k,
-        source:p.attendanceSource || 'Manual attendance'
-      };
-    });
-    if(Object.keys(updates).length){
-      db.ref('attendanceRecords/' + date).update(updates).catch(function(e){ console.warn('[CMI Safe Sync] attendance child update failed', e); });
-    }
-  }
-
-  window.mergeOnlineAttendance = function(date, rows){
-    rows = Array.isArray(rows) ? rows : [];
-    if(!rows.length){
-      setStatus('Connected. No online attendance rows for ' + date + '; existing local/manual data preserved.', true);
-      return;
-    }
-    var incomingPeople = rows.map(function(r){
-      return {
-        name:r.name || r.employeeName || r.attendee || '',
-        dept:r.department || r.dept || r.qrDepartment || 'Unassigned',
-        department:r.department || r.dept || r.qrDepartment || 'Unassigned',
-        role:r.role || r.position || '',
-        present:true,
-        status:(norm(r.status)==='late'?'late':'present'),
-        scanTime:r.time || r.scanTime || '',
-        timeIn:r.time || r.scanTime || '',
-        time:r.time || r.scanTime || '',
-        scannedAt:r.createdAt || r.scannedAt || '',
-        createdAt:r.createdAt || r.scannedAt || '',
-        qrValue:r.qrValue || 'DEPARTMENT_QR:' + (r.department || r.dept || ''),
-        qrDepartment:r.department || r.dept || '',
-        departmentQRDate:date,
-        attendanceSource:r.source || r.scanType || 'QR attendance',
-        firebaseKey:r.firebaseKey || ''
-      };
-    }).filter(function(p){ return filled(p.name); });
-    var mergedPeople = mergeRoster(readRaw('att_people'), incomingPeople);
-    writeRaw('att_people', mergedPeople);
-    writeRaw('ops_attendance_people', mergedPeople);
-    protectedSnapshot.att_people = mergedPeople;
-    protectedSnapshot.ops_attendance_people = mergedPeople;
-
-    var rec = {date:date, people:mergedPeople, savedAt:new Date().toISOString(), source:'Non-destructive Firebase attendance merge'};
-    var mergedRecords = mergeAttendanceRecords(readRaw('att_records'), [rec]);
-    writeRaw('att_records', mergedRecords);
-    protectedSnapshot.att_records = mergedRecords;
-
-    var historyRows = rows.map(function(r){ return {date:date,time:r.time || r.scanTime || '',name:r.name || '',department:r.department || r.dept || '',status:r.status || 'present',role:r.role || r.position || '',qrValue:r.qrValue || '',scanType:r.scanType || r.source || 'Firebase attendance'}; });
-    var mergedHistory = mergeGenericArray('ops_qr_scan_history', readRaw('ops_qr_scan_history'), historyRows);
-    writeRaw('ops_qr_scan_history', mergedHistory);
-    protectedSnapshot.ops_qr_scan_history = mergedHistory;
-
-    scheduleFirebaseMerge('att_people', mergedPeople);
-    scheduleFirebaseMerge('ops_attendance_people', mergedPeople);
-    scheduleFirebaseMerge('att_records', mergedRecords);
-    scheduleFirebaseMerge('ops_qr_scan_history', mergedHistory);
-    triggerRenders('att_people'); triggerRenders('att_records'); triggerRenders('ops_qr_scan_history');
-    setStatus('Connected. Merged ' + rows.length + ' attendance record(s) for ' + date + ' without overwriting other devices.', true);
-  };
-
-  window.cmiOnlineSubmitAttendance = async function(record){
-    var db = getDb();
-    if(!db) throw new Error('Firebase SDK is not loaded. Check internet connection or script blocking.');
-    var date = record.date || selectedDate();
-    var department = record.department || record.dept || 'Unassigned';
-    var k = safeKey(department + '_' + (record.name || 'attendee'));
-    var clean = Object.assign({}, record, {
-      date:date, department:department, dept:department, firebaseKey:k,
-      createdAt:record.createdAt || new Date().toISOString(),
-      source:record.source || 'Department QR Attendance'
-    });
-    var ref = db.ref('attendanceRecords/' + date + '/' + k);
-    var tx = await ref.transaction(function(current){ return current || clean; });
-    var finalVal = tx && tx.snapshot ? tx.snapshot.val() : null;
-    var duplicate = finalVal && finalVal.createdAt !== clean.createdAt && norm(finalVal.name) === norm(clean.name);
-    if(duplicate) return {duplicate:true, existing:finalVal};
-    await db.ref('qrScanHistory').push(clean);
-    window.mergeOnlineAttendance(date, [clean]);
-    setStatus('Connected. Attendance saved online at ' + new Date().toLocaleTimeString('en-PH') + '.', true);
-    return {saved:true, record:clean};
-  };
-
-  window.cmiStartFirebaseAttendanceSync = function(date){
-    date = date || selectedDate();
-    var db = getDb();
-    if(!db){ setStatus('Firebase SDK is not loaded yet. Cross-device sync will retry.', false); return; }
-    try{ if(liveAttendanceRef && liveAttendanceCb) liveAttendanceRef.off('value', liveAttendanceCb); }catch(e){}
-    liveAttendanceRef = db.ref('attendanceRecords/' + date);
-    liveAttendanceCb = function(snap){ window.mergeOnlineAttendance(date, Object.values(snap.val() || {})); };
-    liveAttendanceRef.on('value', liveAttendanceCb, function(err){ setStatus('Firebase attendance read failed: ' + err.message, false); });
-    try{
-      db.ref('.info/connected').on('value', function(snap){ setStatus(snap.val() ? 'Connected. Safe multi-device sync active for ' + date + '.' : 'Offline. Local data is protected and will merge when online.', !!snap.val()); });
-    }catch(e){}
-  };
-  window.cmiRefreshAttendanceFromFirebase = function(){ window.cmiStartFirebaseAttendanceSync(selectedDate()); };
-
-  var oldReset = window.resetAttendanceForDate;
-  window.resetAttendanceForDate = function(date, options){
-    options = options || {};
-    if(options.skipFirebase && !options.userConfirmed){
-      console.warn('[CMI Safe Sync] Blocked automatic attendance reset for', date);
-      return;
-    }
-    window.__cmiAllowDestructiveAttendanceWrite = true;
-    try{ return typeof oldReset === 'function' ? oldReset.call(this, date, options) : undefined; }
-    finally{ setTimeout(function(){ window.__cmiAllowDestructiveAttendanceWrite = false; }, 200); }
-  };
-
-  var oldSaveAttendance = window.saveAttendance;
-  window.saveAttendance = function(){
-    var result;
-    try{ result = typeof oldSaveAttendance === 'function' ? oldSaveAttendance.apply(this, arguments) : undefined; }
-    finally{
-      var date = selectedDate();
-      var people = mergeRoster([], readRaw('att_people'));
-      var records = mergeAttendanceRecords(readRaw('att_records'), [{date:date, people:people, savedAt:new Date().toISOString(), source:'Manual save'}]);
-      writeRaw('att_people', people);
-      writeRaw('ops_attendance_people', people);
-      writeRaw('att_records', records);
-      scheduleFirebaseMerge('att_people', people);
-      scheduleFirebaseMerge('ops_attendance_people', people);
-      scheduleFirebaseMerge('att_records', records);
-      scheduleAttendanceChildPush(date, people);
-      triggerRenders('att_people'); triggerRenders('att_records');
-    }
-    return result;
-  };
-
-  function bootSync(){
-    if(listenersStarted) return;
-    listenersStarted = true;
-    SYNC_KEYS.forEach(function(key){ pullAndMerge(key); });
-    var db = getDb();
-    if(db){
-      SYNC_KEYS.forEach(function(key){
-        db.ref(fbPath(key)).on('value', function(){
-          clearTimeout(pullTimers[key]);
-          pullTimers[key] = setTimeout(function(){ pullAndMerge(key); }, 120);
-        });
-      });
-    }
-    window.cmiStartFirebaseAttendanceSync(selectedDate());
-  }
-
-  function hardNavigate(page){
-    var target = document.getElementById('page-' + page);
-    if(!target) return false;
-    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); p.style.display = 'none'; });
-    target.classList.add('active'); target.style.display = 'block';
-    document.querySelectorAll('.nav-item').forEach(function(n){
-      var on = n.getAttribute('onclick') || '';
-      n.classList.toggle('active', on.indexOf("'" + page + "'") !== -1 || on.indexOf('"' + page + '"') !== -1);
-    });
-    document.querySelectorAll('.mobile-bottom-nav button').forEach(function(btn){ btn.classList.toggle('active', btn.dataset.page === page); });
-    document.body.classList.remove('mobile-menu-open');
-    try{ window.scrollTo({top:0, behavior:'auto'}); }catch(e){ window.scrollTo(0,0); }
-    try{
-      if(page === 'dashboard') window.renderDashboard?.();
-      if(page === 'entry') window.updateKPIsFromEntry?.();
-      if(page === 'records') window.renderRecords?.();
-      if(page === 'concerns'){ window.renderConcerns?.(); window.renderConcernCount?.(); }
-      if(page === 'attendance'){ window.renderAttendance?.(); window.renderAttendanceHistory?.(); window.cmiStartFirebaseAttendanceSync?.(selectedDate()); }
-      if(page === 'qr') window.initQRScannerPage?.();
-      if(page === 'analytics') window.renderAnalytics?.();
-      if(page === 'actions') window.renderActionPlans?.();
-      if(page === 'reports') window.renderMonthlyReport?.();
-      if(page === 'users') window.renderUsersTableSafe?.();
-    }catch(e){ console.warn('[CMI Safe Nav] render warning', e); }
-    return true;
-  }
-  var previousNavigate = window.navigate;
-  window.navigate = function(page){
-    if(page === 'users' && typeof window.hasRole === 'function' && !window.hasRole(['Administrator'])){
-      window.showNotif?.('Administrator access required.', true); return;
-    }
-    var ok = hardNavigate(page);
-    if(!ok && typeof previousNavigate === 'function') return previousNavigate.apply(this, arguments);
-  };
-
-  function ensureMobileNav(){
-    var nav = document.querySelector('.mobile-bottom-nav');
-    if(!nav){ nav = document.createElement('div'); nav.className = 'mobile-bottom-nav'; document.body.appendChild(nav); }
-    nav.innerHTML = ''+
-      '<button type="button" data-page="dashboard"><span>⌂</span>Home</button>'+
-      '<button type="button" data-page="entry"><span>＋</span>Entry</button>'+
-      '<button type="button" data-page="records"><span>▤</span>Records</button>'+
-      '<button type="button" data-page="concerns"><span>!</span>Concerns</button>'+
-      '<button type="button" data-page="attendance"><span>✓</span>Attend</button>';
-    nav.querySelectorAll('button').forEach(function(btn){ btn.addEventListener('click', function(){ window.navigate(btn.dataset.page); }); });
-    var active = document.querySelector('.page.active');
-    var page = active ? active.id.replace('page-','') : 'dashboard';
-    nav.querySelectorAll('button').forEach(function(btn){ btn.classList.toggle('active', btn.dataset.page === page); });
-  }
-
-  document.addEventListener('change', function(e){
-    if(e.target && (e.target.id === 'att-date' || e.target.id === 'dept-qr-date')) window.cmiStartFirebaseAttendanceSync(e.target.value || selectedDate());
-  });
-  document.addEventListener('DOMContentLoaded', function(){
-    ensureMobileNav();
-    hardNavigate((document.querySelector('.page.active')?.id || 'page-dashboard').replace('page-',''));
-    setTimeout(bootSync, 700);
-  });
-  window.addEventListener('load', function(){
-    ensureMobileNav();
-    setTimeout(bootSync, 300);
-    setTimeout(function(){ window.renderAttendance?.(); window.renderAttendanceHistory?.(); }, 700);
-  });
-
-  window.cmiForceBlankOperationalViews = function(){ console.log('[CMI Safe Sync] Blank reset blocked; existing data preserved.'); };
-  console.log('[CMI Safe Sync] Final non-destructive sync and mobile navigation fix loaded.');
-})();
-</script>
 
 </body>
 </html>
