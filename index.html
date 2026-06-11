@@ -2081,7 +2081,10 @@ function handleDemoLogin(event) {
   if(!matched || matched.password !== password) { if(err) err.classList.add('show'); return false; }
   if(err) err.classList.remove('show');
   const displayName = matched.fullname || matched.username;
-  localStorage.setItem('ops_demo_user', displayName + ' / ' + (matched.role || matched.department || 'Registered User'));
+  const role = matched.role || 'Registered User';
+  localStorage.setItem('ops_demo_user', displayName + ' / ' + role);
+  localStorage.setItem('ops_current_user_role', role);
+  localStorage.setItem('ops_current_user_data', JSON.stringify(matched));
   applyAuthState();
   navigate('dashboard');
   showNotif('Login successful. Welcome, ' + displayName + '!');
@@ -3561,6 +3564,20 @@ window.addEventListener('load',()=>{
 
   function activeUserText(){ return localStorage.getItem('ops_demo_user') || 'Guest / Viewer'; }
   window.getCurrentUserInfo = function(){
+    // Primary source: ops_current_user_data (set on login and updated on role change)
+    try{
+      var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(sessionData && sessionData.username){
+        return {
+          display: sessionData.fullname + ' / ' + (sessionData.role || 'Registered User'),
+          name: sessionData.fullname || sessionData.username,
+          username: sessionData.username,
+          role: sessionData.role || 'Registered User',
+          department: sessionData.department || ''
+        };
+      }
+    }catch(e){}
+    // Fallback: parse ops_demo_user string
     const stored = activeUserText();
     const all = (typeof getAllLoginUsers === 'function' ? getAllLoginUsers() : []);
     const name = stored.split(' / ')[0];
@@ -3767,9 +3784,127 @@ window.addEventListener('load',()=>{
 
   // User management
   function renderUsersTableSafe(){ if(!document.getElementById('users-table-body')) return; renderUsersTable(); }
-  window.renderUsersTable=function(){ const body=document.getElementById('users-table-body'); if(!body) return; const users=typeof getRegisteredUsers==='function'?getRegisteredUsers():[]; if(!users.length){ body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>'; return; } body.innerHTML=users.map((u,i)=>`<tr><td>${u.fullname}</td><td>${u.email}</td><td>${u.username}</td><td>${u.department}</td><td><select class="role-chip" onchange="updateRegisteredUserRole(${i},this.value)" ${canAdmin()?'':'disabled'}><option ${u.role==='Registered User'?'selected':''}>Registered User</option><option ${u.role==='Supervisor'?'selected':''}>Supervisor</option><option ${u.role==='Viewer'?'selected':''}>Viewer</option><option ${u.role==='Administrator'?'selected':''}>Administrator</option></select></td><td>${canAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(${i})">Delete</button>`:'—'}</td></tr>`).join(''); };
-  window.updateRegisteredUserRole=function(i,role){ if(!canAdmin()) return; const users=getRegisteredUsers(); if(users[i]){ users[i].role=role; saveRegisteredUsers(users); renderUsersTable(); showNotif('User role updated.'); }};
-  window.deleteRegisteredUser=function(i){ if(!canAdmin()) return; const users=getRegisteredUsers(); users.splice(i,1); saveRegisteredUsers(users); renderUsersTable(); };
+
+  // Get current logged-in username for locking own row
+  function currentUsername(){
+    try{
+      var d = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(d && d.username) return (d.username || '').toLowerCase();
+    }catch(e){}
+    var s = localStorage.getItem('ops_demo_user') || '';
+    return s.split(' / ')[0].toLowerCase();
+  }
+
+  // Role badge colors
+  function roleBadgeStyle(role){
+    if(role==='Administrator') return 'background:#fff0f0;color:#c62828;border:1.5px solid #ef9a9a;';
+    if(role==='Supervisor') return 'background:#e8f4fd;color:#1565c0;border:1.5px solid #90caf9;';
+    if(role==='Viewer') return 'background:#f3e5f5;color:#6a1b9a;border:1.5px solid #ce93d8;';
+    return 'background:#e8f5e9;color:#1b5e20;border:1.5px solid #a5d6a7;';
+  }
+
+  window.renderUsersTable = function(){
+    var body = document.getElementById('users-table-body');
+    if(!body) return;
+    var registered = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+    var builtIns   = typeof DEMO_USERS !== 'undefined' ? DEMO_USERS : [];
+    var isAdmin    = canAdmin();
+    var myUsername = currentUsername();
+
+    // Built-in system accounts (read-only rows)
+    var builtInRows = builtIns.map(function(u){
+      var role = u.role || 'Administrator';
+      return '<tr style="opacity:.75;">' +
+        '<td>' + (u.fullname||'') + '</td>' +
+        '<td>' + (u.email||'') + '</td>' +
+        '<td>' + (u.username||'') + '</td>' +
+        '<td>' + (u.department||'') + '</td>' +
+        '<td><span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span> <span style="font-size:10px;color:var(--text-muted);">(system)</span></td>' +
+        '<td style="color:var(--text-muted);font-size:11px;">—</td>' +
+      '</tr>';
+    }).join('');
+
+    if(!registered.length && !builtIns.length){
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>';
+      return;
+    }
+
+    // Registered user rows
+    var regRows = registered.map(function(u, i){
+      var role = u.role || 'Registered User';
+      var isMe = (u.username||'').toLowerCase() === myUsername || (u.fullname||'').toLowerCase() === myUsername;
+      // Own row: always show as locked badge — admin cannot change their own role here
+      if(isMe){
+        return '<tr style="background:rgba(245,200,0,.07);">' +
+          '<td>' + (u.fullname||'') + ' <span style="font-size:10px;background:#fffde7;color:#e65100;border:1px solid #ffd54f;border-radius:999px;padding:2px 7px;font-weight:700;">YOU</span></td>' +
+          '<td>' + (u.email||'') + '</td>' +
+          '<td>' + (u.username||'') + '</td>' +
+          '<td>' + (u.department||'') + '</td>' +
+          '<td><span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span></td>' +
+          '<td style="color:var(--text-muted);font-size:11px;">—</td>' +
+        '</tr>';
+      }
+      // Other users: admin can change role and delete
+      var roleSelect = isAdmin
+        ? '<select class="role-chip" style="' + roleBadgeStyle(role) + 'border-radius:999px;padding:4px 10px;font-size:10px;font-weight:800;text-transform:uppercase;cursor:pointer;" onchange="updateRegisteredUserRole(' + i + ',this.value)">' +
+            '<option value="Registered User"' + (role==='Registered User'?' selected':'') + '>Registered User</option>' +
+            '<option value="Supervisor"'       + (role==='Supervisor'?' selected':'')       + '>Supervisor</option>' +
+            '<option value="Viewer"'           + (role==='Viewer'?' selected':'')           + '>Viewer</option>' +
+            '<option value="Administrator"'    + (role==='Administrator'?' selected':'')    + '>Administrator</option>' +
+          '</select>'
+        : '<span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span>';
+      var deleteBtn = isAdmin
+        ? '<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(' + i + ')">Delete</button>'
+        : '—';
+      return '<tr>' +
+        '<td>' + (u.fullname||'') + '</td>' +
+        '<td>' + (u.email||'') + '</td>' +
+        '<td>' + (u.username||'') + '</td>' +
+        '<td>' + (u.department||'') + '</td>' +
+        '<td>' + roleSelect + '</td>' +
+        '<td>' + deleteBtn + '</td>' +
+      '</tr>';
+    }).join('');
+
+    body.innerHTML = builtInRows + regRows;
+  };
+
+  window.updateRegisteredUserRole = function(i, role){
+    if(!canAdmin()){ showNotif('Administrator access required.', true); return; }
+    var users = getRegisteredUsers();
+    if(!users[i]) return;
+    var prevRole = users[i].role;
+    users[i].role = role;
+    saveRegisteredUsers(users);
+    // If this user is currently logged in, update their session role immediately
+    try{
+      var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(sessionData && (sessionData.username||'').toLowerCase() === (users[i].username||'').toLowerCase()){
+        sessionData.role = role;
+        localStorage.setItem('ops_current_user_data', JSON.stringify(sessionData));
+        var displayName = sessionData.fullname || sessionData.username;
+        localStorage.setItem('ops_demo_user', displayName + ' / ' + role);
+        localStorage.setItem('ops_current_user_role', role);
+        if(typeof applyAuthState === 'function') applyAuthState();
+        if(typeof applyRoleUI === 'function') applyRoleUI();
+      }
+    }catch(e){}
+    renderUsersTable();
+    showNotif('Role updated: ' + (users[i].fullname || users[i].username) + ' is now ' + role + '.');
+  };
+
+  window.deleteRegisteredUser = function(i){
+    if(!canAdmin()){ showNotif('Administrator access required.', true); return; }
+    var users = getRegisteredUsers();
+    if(!users[i]) return;
+    var myUsername = currentUsername();
+    if((users[i].username||'').toLowerCase() === myUsername){ showNotif('You cannot delete your own account.', true); return; }
+    if(!confirm('Delete user "' + (users[i].fullname || users[i].username) + '"? This cannot be undone.')) return;
+    users.splice(i, 1);
+    saveRegisteredUsers(users);
+    renderUsersTable();
+    showNotif('User deleted.');
+  };
 
   function applyRoleUI(){ document.body.classList.toggle('hide-admin-only', !canAdmin()); }
 
