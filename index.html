@@ -1194,6 +1194,81 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
 }
 </style>
 
+<style id="cmi-mobile-device-fix">
+/* ── Responsive two-column grid used in dashboard and export ── */
+.dash-two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Login screen fully device-friendly ── */
+@media(max-width:600px){
+  #login-screen{padding:14px!important;}
+  .login-card{padding:22px 18px!important;border-radius:20px!important;}
+  .login-title{font-size:25px!important;}
+  .login-demo-grid{grid-template-columns:1fr!important;}
+  .auth-tabs{grid-template-columns:1fr 1fr!important;}
+}
+
+/* ── Collapse two-col grids on phones ── */
+@media(max-width:680px){
+  .dash-two-col-grid{grid-template-columns:1fr!important;gap:12px!important;}
+}
+
+/* ── Ensure all inline style grids inside .main collapse on mobile ── */
+@media(max-width:1024px){
+  /* Any hard-coded 2-col inline grid inside main pages AND modals */
+  .main > div[id^="page"] [style*="grid-template-columns:1fr 1fr"],
+  .main [style*="grid-template-columns:1fr 1fr"],
+  .modal [style*="grid-template-columns:1fr 1fr"],
+  .att-detail-modal [style*="grid-template-columns:1fr 1fr"],
+  #detail-body [style*="grid-template-columns"]{
+    grid-template-columns:1fr!important;
+  }
+  /* Prevent horizontal overflow from wide containers */
+  .main,#page-dashboard,#page-entry,#page-records,#page-analytics,
+  #page-concerns,#page-attendance,#page-employees,#page-actions,
+  #page-reports,#page-users,#page-export,#page-qr{
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+  /* Keep card content from breaking out */
+  .card,.kpi-card{
+    min-width:0!important;
+    overflow:hidden!important;
+    word-break:break-word!important;
+  }
+  /* Page-header action buttons: stack cleanly */
+  .page-header{
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:12px!important;
+  }
+  .page-header > div:last-child > .btn,
+  .page-header .btn{
+    width:100%!important;
+    justify-content:center!important;
+  }
+  /* Search bars stack vertically */
+  .search-bar{flex-direction:column!important;}
+  .search-bar input,.search-bar select{width:100%!important;}
+  /* Role chip dropdowns inside tables */
+  select.role-chip{font-size:12px!important;max-width:140px!important;}
+}
+
+/* ── Very small phones (≤420px) ── */
+@media(max-width:420px){
+  .dash-two-col-grid{grid-template-columns:1fr!important;}
+  .kpi-grid{grid-template-columns:1fr!important;}
+  .main{padding:10px!important;}
+  .card{padding:14px!important;}
+  .page-title{font-size:21px!important;}
+  .btn{font-size:12px!important;padding:8px 14px!important;}
+  table{min-width:620px!important;}
+}
+</style>
+
 </head>
 <body class="login-required">
 
@@ -1215,7 +1290,6 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="login-error" id="login-error">Invalid username/Gmail or password.</div>
         <button class="login-btn" type="submit">Log In</button>
       </form>
-      <div class="login-demo-box"><strong>Built-in system accounts:</strong><div class="login-demo-grid"><div class="login-chip">admin<br><strong>admin123</strong></div><div class="login-chip">supervisor<br><strong>ops2026</strong></div></div>Or register your own account below. All accounts are synced in real time across all devices via Firebase.</div>
       <div class="login-footer" id="login-sync-footer">🔄 Connecting to cloud... <button type="button" class="secondary-link-btn" onclick="showAuthPanel('register')">Register here</button></div>
     </div>
 
@@ -1368,7 +1442,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
       </div>
 
       <!-- summary of all concerns (need pa rin iimprove ng kaunti) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="dash-two-col-grid">
         <div class="card">
           <div class="card-title">Active Concerns <span class="badge" id="concern-count">0</span></div>
           <div id="dash-concerns-list"><p style="color:var(--text-muted);font-size:13px;">No concerns logged yet. Use the Concerns Log to add items.</p></div>
@@ -1968,14 +2042,31 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Gmail</th><th>Username</th><th>Department</th><th>Role</th><th>Action</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="card-title">Role Rules</div>
-        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">Administrator can manage users, delete records, and export all data. Supervisor can encode, edit, approve, and export operational records. Registered User can encode and view data for personal/local use. Viewer can only review dashboards, records, analytics, and reports.</p>
+        <div class="card-title">Role Access Rules</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+          <div style="background:linear-gradient(135deg,#f0faf4,#e4f5ec);border:1.5px solid rgba(7,92,54,.18);border-left:6px solid #0f6b3c;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">🛡 Administrator</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can manage users, delete records, and export all data.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#fffbea,#fff8d4);border:1.5px solid rgba(245,200,0,.45);border-left:6px solid #c9a200;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">⚙ Supervisor</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode, edit, approve, and export operational records.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#f4faf6,#edf7f1);border:1.5px solid rgba(7,92,54,.14);border-left:6px solid #20a36a;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👤 Registered User</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode and view data for personal/local use.</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#f8f8f8,#f0f0f0);border:1.5px solid rgba(0,0,0,.10);border-left:6px solid #888;border-radius:16px;padding:14px 16px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👁 Viewer</div>
+            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can only review dashboards, records, analytics, and reports.</div>
+          </div>
+        </div>
       </div>
     </div>
 
     <div id="page-export" class="page">
       <div class="page-header"><div class="page-title">Export & Print</div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div class="dash-two-col-grid">
         <div class="card">
           <div class="card-title">Export Options</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
@@ -2737,27 +2828,18 @@ function toggleAttendance(idx) {
 }
 
 function addAttendee() {
-  // This base version is superseded by the manual-add-attendee-firebase-final-fix patch.
-  // Kept as fallback only — the patched window.addAttendee runs instead.
   const name = document.getElementById('att-new-name').value.trim();
   const dept = document.getElementById('att-new-dept').value.trim();
   const role = document.getElementById('att-new-role').value.trim();
   if(!name) { showNotif('Please enter a name.'); return; }
-  // 10:00 AM cutoff: same rule as toggleAttendance
-  const now = new Date();
-  const cutoff = new Date(now); cutoff.setHours(10,0,0,0);
-  const autoStatus = now > cutoff ? 'late' : 'present';
-  const time = now.toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   const people = getData('att_people');
-  people.push({name, dept, role, present: true, status: autoStatus, scanTime: time, timeIn: time, scannedAt: now.toISOString(), attendanceSource:'Manual Add Attendee'});
+  people.push({name, dept, role, present:false, status:'absent'});
   setData('att_people', people);
   document.getElementById('att-new-name').value = '';
   document.getElementById('att-new-dept').value = '';
   document.getElementById('att-new-role').value = '';
   renderAttendance();
-  const label = autoStatus.toUpperCase();
-  const note  = autoStatus === 'late' ? ' (past 10:00 AM)' : ' (on time)';
-  showNotif(name + ' added — marked ' + label + note);
+  showNotif(name + ' added!');
 }
 
 function saveAttendance() {
@@ -7295,14 +7377,6 @@ window.addEventListener('load',()=>{
     return cleanRecord;
   }
 
-  // Determine present/late based on 10:00 AM cutoff — same rule as toggleAttendance
-  function isLateNowManual(){
-    const now = new Date();
-    const cutoff = new Date(now);
-    cutoff.setHours(10, 0, 0, 0);
-    return now > cutoff;
-  }
-
   window.addAttendee = async function(){
     const nameEl = document.getElementById('att-new-name');
     const deptEl = document.getElementById('att-new-dept');
@@ -7314,10 +7388,6 @@ window.addEventListener('load',()=>{
 
     const date = selectedDate();
     const time = selectedTime();
-
-    // Auto-determine status: past 10:00 AM = Late, at/before 10:00 AM = Present
-    const autoStatus = isLateNowManual() ? 'late' : 'present';
-
     const record = {
       date,
       time,
@@ -7326,7 +7396,7 @@ window.addEventListener('load',()=>{
       dept: department,
       role,
       position: role,
-      status: autoStatus,
+      status: 'present',
       present: true,
       scanTime: time,
       timeIn: time,
@@ -7346,7 +7416,7 @@ window.addEventListener('load',()=>{
       role,
       position: role,
       present: true,
-      status: autoStatus,
+      status: 'present',
       scanTime: time,
       timeIn: time,
       time,
@@ -7372,16 +7442,14 @@ window.addEventListener('load',()=>{
     window.renderQRScanHistory?.();
     window.renderDashboard?.();
 
-    const statusLabel = autoStatus.toUpperCase();
-    const timeNote = autoStatus === 'late' ? ' (past 10:00 AM — marked Late)' : ' (on time — marked Present)';
     try{
       const onlineRecord = await saveOnline(record);
       if(typeof window.__cmiApplyOnlineAttendanceRows === 'function') window.__cmiApplyOnlineAttendanceRows(date, [onlineRecord]);
-      notify(name + ' added, marked ' + statusLabel + timeNote + ', and saved online for ' + date + '.');
+      notify(name + ' added, marked PRESENT, and saved online for ' + date + '.');
       setTimeout(() => window.cmiStartFirebaseAttendanceSync?.(date), 250);
     }catch(e){
       console.error(e);
-      notify(name + ' added and marked ' + statusLabel + timeNote + '. Online sync failed: ' + e.message, true);
+      notify(name + ' was added on this device, but online sync failed: ' + e.message, true);
     }
   };
 
