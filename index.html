@@ -1194,81 +1194,6 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
 }
 </style>
 
-<style id="cmi-mobile-device-fix">
-/* ── Responsive two-column grid used in dashboard and export ── */
-.dash-two-col-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-/* ── Login screen fully device-friendly ── */
-@media(max-width:600px){
-  #login-screen{padding:14px!important;}
-  .login-card{padding:22px 18px!important;border-radius:20px!important;}
-  .login-title{font-size:25px!important;}
-  .login-demo-grid{grid-template-columns:1fr!important;}
-  .auth-tabs{grid-template-columns:1fr 1fr!important;}
-}
-
-/* ── Collapse two-col grids on phones ── */
-@media(max-width:680px){
-  .dash-two-col-grid{grid-template-columns:1fr!important;gap:12px!important;}
-}
-
-/* ── Ensure all inline style grids inside .main collapse on mobile ── */
-@media(max-width:1024px){
-  /* Any hard-coded 2-col inline grid inside main pages AND modals */
-  .main > div[id^="page"] [style*="grid-template-columns:1fr 1fr"],
-  .main [style*="grid-template-columns:1fr 1fr"],
-  .modal [style*="grid-template-columns:1fr 1fr"],
-  .att-detail-modal [style*="grid-template-columns:1fr 1fr"],
-  #detail-body [style*="grid-template-columns"]{
-    grid-template-columns:1fr!important;
-  }
-  /* Prevent horizontal overflow from wide containers */
-  .main,#page-dashboard,#page-entry,#page-records,#page-analytics,
-  #page-concerns,#page-attendance,#page-employees,#page-actions,
-  #page-reports,#page-users,#page-export,#page-qr{
-    min-width:0!important;
-    overflow-x:hidden!important;
-  }
-  /* Keep card content from breaking out */
-  .card,.kpi-card{
-    min-width:0!important;
-    overflow:hidden!important;
-    word-break:break-word!important;
-  }
-  /* Page-header action buttons: stack cleanly */
-  .page-header{
-    flex-direction:column!important;
-    align-items:flex-start!important;
-    gap:12px!important;
-  }
-  .page-header > div:last-child > .btn,
-  .page-header .btn{
-    width:100%!important;
-    justify-content:center!important;
-  }
-  /* Search bars stack vertically */
-  .search-bar{flex-direction:column!important;}
-  .search-bar input,.search-bar select{width:100%!important;}
-  /* Role chip dropdowns inside tables */
-  select.role-chip{font-size:12px!important;max-width:140px!important;}
-}
-
-/* ── Very small phones (≤420px) ── */
-@media(max-width:420px){
-  .dash-two-col-grid{grid-template-columns:1fr!important;}
-  .kpi-grid{grid-template-columns:1fr!important;}
-  .main{padding:10px!important;}
-  .card{padding:14px!important;}
-  .page-title{font-size:21px!important;}
-  .btn{font-size:12px!important;padding:8px 14px!important;}
-  table{min-width:620px!important;}
-}
-</style>
-
 </head>
 <body class="login-required">
 
@@ -1290,6 +1215,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="login-error" id="login-error">Invalid username/Gmail or password.</div>
         <button class="login-btn" type="submit">Log In</button>
       </form>
+      <div class="login-demo-box"><strong>Built-in system accounts:</strong><div class="login-demo-grid"><div class="login-chip">admin<br><strong>admin123</strong></div><div class="login-chip">supervisor<br><strong>ops2026</strong></div></div>Or register your own account below. All accounts are synced in real time across all devices via Firebase.</div>
       <div class="login-footer" id="login-sync-footer">🔄 Connecting to cloud... <button type="button" class="secondary-link-btn" onclick="showAuthPanel('register')">Register here</button></div>
     </div>
 
@@ -1442,7 +1368,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
       </div>
 
       <!-- summary of all concerns (need pa rin iimprove ng kaunti) -->
-      <div class="dash-two-col-grid">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="card">
           <div class="card-title">Active Concerns <span class="badge" id="concern-count">0</span></div>
           <div id="dash-concerns-list"><p style="color:var(--text-muted);font-size:13px;">No concerns logged yet. Use the Concerns Log to add items.</p></div>
@@ -1759,10 +1685,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
     <div id="page-concerns" class="page">
       <div class="page-header">
         <div class="page-title">Concerns Log</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-danger btn-sm" onclick="deleteAllConcerns()" title="Delete all concern records">🗑 Delete All Concerns</button>
-          <button class="btn btn-primary" onclick="openConcernModal()">+ Add Concern</button>
-        </div>
+        <button class="btn btn-primary" onclick="openConcernModal()">+ Add Concern</button>
       </div>
 
       <div class="search-bar">
@@ -2005,7 +1928,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
           <div class="form-group"><label>Status</label><select id="ap-status"><option>Open</option><option>Pending</option><option>Closed</option></select></div>
           <div class="form-group"><label>Remarks</label><input type="text" id="ap-remarks" placeholder="Updates / notes"></div>
         </div>
-        <div class="btn-row"><button class="btn btn-outline" onclick="clearActionPlanForm()">Clear</button><button class="btn btn-primary" onclick="saveActionPlan()">💾 Save Action Plan</button><button class="btn btn-outline" onclick="exportActionPlansCSV()">Export CSV</button></div>
+        <div class="btn-row"><button class="btn btn-outline" onclick="clearActionPlanForm()">Clear</button><button class="btn btn-green" onclick="createActionsFromLatestAlerts()">Create From Latest Alerts</button><button class="btn btn-outline" onclick="exportActionPlansCSV()">Export CSV</button></div>
       </div>
       <div class="card">
         <div class="card-title">Open Action Plans <span class="badge" id="action-plan-count">0</span></div>
@@ -2045,31 +1968,14 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
         <div class="table-wrap"><table><thead><tr><th>Name</th><th>Gmail</th><th>Username</th><th>Department</th><th>Role</th><th>Action</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
       </div>
       <div class="card">
-        <div class="card-title">Role Access Rules</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
-          <div style="background:linear-gradient(135deg,#f0faf4,#e4f5ec);border:1.5px solid rgba(7,92,54,.18);border-left:6px solid #0f6b3c;border-radius:16px;padding:14px 16px;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">🛡 Administrator</div>
-            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can manage users, delete records, and export all data.</div>
-          </div>
-          <div style="background:linear-gradient(135deg,#fffbea,#fff8d4);border:1.5px solid rgba(245,200,0,.45);border-left:6px solid #c9a200;border-radius:16px;padding:14px 16px;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">⚙ Supervisor</div>
-            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode, edit, approve, and export operational records.</div>
-          </div>
-          <div style="background:linear-gradient(135deg,#f4faf6,#edf7f1);border:1.5px solid rgba(7,92,54,.14);border-left:6px solid #20a36a;border-radius:16px;padding:14px 16px;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👤 Registered User</div>
-            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can encode and view data for personal/local use.</div>
-          </div>
-          <div style="background:linear-gradient(135deg,#f8f8f8,#f0f0f0);border:1.5px solid rgba(0,0,0,.10);border-left:6px solid #888;border-radius:16px;padding:14px 16px;">
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:#073f28;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;">👁 Viewer</div>
-            <div style="font-size:12.5px;color:#1a3d28;line-height:1.6;">Can only review dashboards, records, analytics, and reports.</div>
-          </div>
-        </div>
+        <div class="card-title">Role Rules</div>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.7;">Administrator can manage users, delete records, and export all data. Supervisor can encode, edit, approve, and export operational records. Registered User can encode and view data for personal/local use. Viewer can only review dashboards, records, analytics, and reports.</p>
       </div>
     </div>
 
     <div id="page-export" class="page">
       <div class="page-header"><div class="page-title">Export & Print</div></div>
-      <div class="dash-two-col-grid">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
         <div class="card">
           <div class="card-title">Export Options</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
@@ -2175,7 +2081,10 @@ function handleDemoLogin(event) {
   if(!matched || matched.password !== password) { if(err) err.classList.add('show'); return false; }
   if(err) err.classList.remove('show');
   const displayName = matched.fullname || matched.username;
-  localStorage.setItem('ops_demo_user', displayName + ' / ' + (matched.role || matched.department || 'Registered User'));
+  const role = matched.role || 'Registered User';
+  localStorage.setItem('ops_demo_user', displayName + ' / ' + role);
+  localStorage.setItem('ops_current_user_role', role);
+  localStorage.setItem('ops_current_user_data', JSON.stringify(matched));
   applyAuthState();
   navigate('dashboard');
   showNotif('Login successful. Welcome, ' + displayName + '!');
@@ -3655,24 +3564,25 @@ window.addEventListener('load',()=>{
 
   function activeUserText(){ return localStorage.getItem('ops_demo_user') || 'Guest / Viewer'; }
   window.getCurrentUserInfo = function(){
+    // Primary source: ops_current_user_data (set on login and updated on role change)
+    try{
+      var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(sessionData && sessionData.username){
+        return {
+          display: sessionData.fullname + ' / ' + (sessionData.role || 'Registered User'),
+          name: sessionData.fullname || sessionData.username,
+          username: sessionData.username,
+          role: sessionData.role || 'Registered User',
+          department: sessionData.department || ''
+        };
+      }
+    }catch(e){}
+    // Fallback: parse ops_demo_user string
     const stored = activeUserText();
-    // ops_current_user_role is written at login from the matched user record.
-    // Always trust it as the session role — Firebase listener sync can overwrite
-    // ops_registered_users with stale data, making found.role unreliable.
-    const sessionRole = localStorage.getItem('ops_current_user_role') || '';
     const all = (typeof getAllLoginUsers === 'function' ? getAllLoginUsers() : []);
     const name = stored.split(' / ')[0];
-    const found = all.find(u =>
-      (u.fullname || u.username) === name ||
-      (u.username && u.username.length > 0 && stored.includes(u.username))
-    );
-    const fallbackRole = found
-      ? (found.role || 'Registered User')
-      : (stored.includes('Administrator') ? 'Administrator'
-          : stored.includes('Supervisor') ? 'Supervisor'
-          : stored.includes('Viewer') ? 'Viewer'
-          : 'Registered User');
-    const role = sessionRole || fallbackRole;
+    const found = all.find(u => (u.fullname || u.username) === name || stored.includes(u.username || ''));
+    const role = found ? (found.role || 'Registered User') : (stored.includes('Administrator') ? 'Administrator' : stored.includes('Supervisor') ? 'Supervisor' : stored.includes('Viewer') ? 'Viewer' : 'Registered User');
     return { display: stored, name, role, department: found ? found.department : '' };
   };
   window.hasRole = function(roles){ return roles.includes(getCurrentUserInfo().role); };
@@ -3874,27 +3784,127 @@ window.addEventListener('load',()=>{
 
   // User management
   function renderUsersTableSafe(){ if(!document.getElementById('users-table-body')) return; renderUsersTable(); }
-  window.renderUsersTable=function(){ const body=document.getElementById('users-table-body'); if(!body) return; const users=typeof getRegisteredUsers==='function'?getRegisteredUsers():[]; if(!users.length){ body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>'; return; } body.innerHTML=users.map((u,i)=>`<tr><td>${u.fullname}</td><td>${u.email}</td><td>${u.username}</td><td>${u.department}</td><td><select class="role-chip" onchange="updateRegisteredUserRole(${i},this.value)" ${canAdmin()?'':'disabled'}><option ${u.role==='Registered User'?'selected':''}>Registered User</option><option ${u.role==='Supervisor'?'selected':''}>Supervisor</option><option ${u.role==='Viewer'?'selected':''}>Viewer</option><option ${u.role==='Administrator'?'selected':''}>Administrator</option></select></td><td>${canAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(${i})">Delete</button>`:'—'}</td></tr>`).join(''); };
-  window.updateRegisteredUserRole=function(i,role){
-    if(!canAdmin()) return;
-    const users=getRegisteredUsers();
-    if(users[i]){
-      users[i].role=role;
-      saveRegisteredUsers(users);
-      // If the updated user is the currently logged-in user, keep the session role in sync
-      const me = getCurrentUserInfo();
-      if((users[i].fullname && users[i].fullname === me.name) ||
-         (users[i].username && me.display.includes(users[i].username))){
-        localStorage.setItem('ops_current_user_role', role);
-        const demoStr = localStorage.getItem('ops_demo_user') || '';
-        const base = demoStr.split(' / ')[0];
-        localStorage.setItem('ops_demo_user', base + ' / ' + role);
-      }
-      renderUsersTable();
-      showNotif('User role updated.');
+
+  // Get current logged-in username for locking own row
+  function currentUsername(){
+    try{
+      var d = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(d && d.username) return (d.username || '').toLowerCase();
+    }catch(e){}
+    var s = localStorage.getItem('ops_demo_user') || '';
+    return s.split(' / ')[0].toLowerCase();
+  }
+
+  // Role badge colors
+  function roleBadgeStyle(role){
+    if(role==='Administrator') return 'background:#fff0f0;color:#c62828;border:1.5px solid #ef9a9a;';
+    if(role==='Supervisor') return 'background:#e8f4fd;color:#1565c0;border:1.5px solid #90caf9;';
+    if(role==='Viewer') return 'background:#f3e5f5;color:#6a1b9a;border:1.5px solid #ce93d8;';
+    return 'background:#e8f5e9;color:#1b5e20;border:1.5px solid #a5d6a7;';
+  }
+
+  window.renderUsersTable = function(){
+    var body = document.getElementById('users-table-body');
+    if(!body) return;
+    var registered = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+    var builtIns   = typeof DEMO_USERS !== 'undefined' ? DEMO_USERS : [];
+    var isAdmin    = canAdmin();
+    var myUsername = currentUsername();
+
+    // Built-in system accounts (read-only rows)
+    var builtInRows = builtIns.map(function(u){
+      var role = u.role || 'Administrator';
+      return '<tr style="opacity:.75;">' +
+        '<td>' + (u.fullname||'') + '</td>' +
+        '<td>' + (u.email||'') + '</td>' +
+        '<td>' + (u.username||'') + '</td>' +
+        '<td>' + (u.department||'') + '</td>' +
+        '<td><span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span> <span style="font-size:10px;color:var(--text-muted);">(system)</span></td>' +
+        '<td style="color:var(--text-muted);font-size:11px;">—</td>' +
+      '</tr>';
+    }).join('');
+
+    if(!registered.length && !builtIns.length){
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>';
+      return;
     }
+
+    // Registered user rows
+    var regRows = registered.map(function(u, i){
+      var role = u.role || 'Registered User';
+      var isMe = (u.username||'').toLowerCase() === myUsername || (u.fullname||'').toLowerCase() === myUsername;
+      // Own row: always show as locked badge — admin cannot change their own role here
+      if(isMe){
+        return '<tr style="background:rgba(245,200,0,.07);">' +
+          '<td>' + (u.fullname||'') + ' <span style="font-size:10px;background:#fffde7;color:#e65100;border:1px solid #ffd54f;border-radius:999px;padding:2px 7px;font-weight:700;">YOU</span></td>' +
+          '<td>' + (u.email||'') + '</td>' +
+          '<td>' + (u.username||'') + '</td>' +
+          '<td>' + (u.department||'') + '</td>' +
+          '<td><span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span></td>' +
+          '<td style="color:var(--text-muted);font-size:11px;">—</td>' +
+        '</tr>';
+      }
+      // Other users: admin can change role and delete
+      var roleSelect = isAdmin
+        ? '<select class="role-chip" style="' + roleBadgeStyle(role) + 'border-radius:999px;padding:4px 10px;font-size:10px;font-weight:800;text-transform:uppercase;cursor:pointer;" onchange="updateRegisteredUserRole(' + i + ',this.value)">' +
+            '<option value="Registered User"' + (role==='Registered User'?' selected':'') + '>Registered User</option>' +
+            '<option value="Supervisor"'       + (role==='Supervisor'?' selected':'')       + '>Supervisor</option>' +
+            '<option value="Viewer"'           + (role==='Viewer'?' selected':'')           + '>Viewer</option>' +
+            '<option value="Administrator"'    + (role==='Administrator'?' selected':'')    + '>Administrator</option>' +
+          '</select>'
+        : '<span class="role-chip" style="' + roleBadgeStyle(role) + 'display:inline-block;padding:4px 12px;border-radius:999px;font-size:10px;font-weight:800;text-transform:uppercase;">' + role + '</span>';
+      var deleteBtn = isAdmin
+        ? '<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(' + i + ')">Delete</button>'
+        : '—';
+      return '<tr>' +
+        '<td>' + (u.fullname||'') + '</td>' +
+        '<td>' + (u.email||'') + '</td>' +
+        '<td>' + (u.username||'') + '</td>' +
+        '<td>' + (u.department||'') + '</td>' +
+        '<td>' + roleSelect + '</td>' +
+        '<td>' + deleteBtn + '</td>' +
+      '</tr>';
+    }).join('');
+
+    body.innerHTML = builtInRows + regRows;
   };
-  window.deleteRegisteredUser=function(i){ if(!canAdmin()) return; const users=getRegisteredUsers(); users.splice(i,1); saveRegisteredUsers(users); renderUsersTable(); };
+
+  window.updateRegisteredUserRole = function(i, role){
+    if(!canAdmin()){ showNotif('Administrator access required.', true); return; }
+    var users = getRegisteredUsers();
+    if(!users[i]) return;
+    var prevRole = users[i].role;
+    users[i].role = role;
+    saveRegisteredUsers(users);
+    // If this user is currently logged in, update their session role immediately
+    try{
+      var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+      if(sessionData && (sessionData.username||'').toLowerCase() === (users[i].username||'').toLowerCase()){
+        sessionData.role = role;
+        localStorage.setItem('ops_current_user_data', JSON.stringify(sessionData));
+        var displayName = sessionData.fullname || sessionData.username;
+        localStorage.setItem('ops_demo_user', displayName + ' / ' + role);
+        localStorage.setItem('ops_current_user_role', role);
+        if(typeof applyAuthState === 'function') applyAuthState();
+        if(typeof applyRoleUI === 'function') applyRoleUI();
+      }
+    }catch(e){}
+    renderUsersTable();
+    showNotif('Role updated: ' + (users[i].fullname || users[i].username) + ' is now ' + role + '.');
+  };
+
+  window.deleteRegisteredUser = function(i){
+    if(!canAdmin()){ showNotif('Administrator access required.', true); return; }
+    var users = getRegisteredUsers();
+    if(!users[i]) return;
+    var myUsername = currentUsername();
+    if((users[i].username||'').toLowerCase() === myUsername){ showNotif('You cannot delete your own account.', true); return; }
+    if(!confirm('Delete user "' + (users[i].fullname || users[i].username) + '"? This cannot be undone.')) return;
+    users.splice(i, 1);
+    saveRegisteredUsers(users);
+    renderUsersTable();
+    showNotif('User deleted.');
+  };
 
   function applyRoleUI(){ document.body.classList.toggle('hide-admin-only', !canAdmin()); }
 
@@ -6194,7 +6204,26 @@ window.addEventListener('load',()=>{
   };
   window.cmiRefreshAttendanceFromFirebase=function(){ window.cmiStartFirebaseAttendanceSync(selectedDate()); };
 
-  window.resetAttendees=function(){ setPeople(DEFAULTS.map(defaultBlank)); window.renderAttendance?.(); window.renderAttendanceHistory?.(); notify('Default attendees restored.'); };
+  window.resetAttendees=function(){
+    var date=todayISO();
+    if(!confirm('Reset attendance for '+date+'? This will clear all manual and QR attendance for today and restore the default attendee list.')) return;
+    // Clear today's QR scan history and attendance records locally
+    try{
+      var qrHist=JSON.parse(localStorage.getItem('ops_qr_scan_history')||'[]');
+      qrHist=qrHist.filter(function(h){ return String(h.date)!==String(date); });
+      localStorage.setItem('ops_qr_scan_history',JSON.stringify(qrHist));
+      var attRec=JSON.parse(localStorage.getItem('att_records')||'[]');
+      attRec=attRec.filter(function(r){ return String(r.date)!==String(date); });
+      localStorage.setItem('att_records',JSON.stringify(attRec));
+    }catch(e){}
+    // Restore default attendees (all absent)
+    var cleaned=DEFAULTS.map(defaultBlank);
+    try{ localStorage.setItem('att_people',JSON.stringify(cleaned)); localStorage.setItem('ops_attendance_people',JSON.stringify(cleaned)); }catch(e){}
+    window.renderAttendance?.();
+    window.renderAttendanceHistory?.();
+    if(typeof window.renderQRScanHistory==='function') window.renderQRScanHistory();
+    notify('Attendance reset. Default attendees restored.');
+  };
 
   document.addEventListener('change',e=>{ if(e.target && (e.target.id==='dept-qr-date' || e.target.id==='att-date')) window.cmiStartFirebaseAttendanceSync(e.target.value || selectedDate()); });
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) window.cmiRefreshAttendanceFromFirebase(); });
@@ -6783,35 +6812,27 @@ window.addEventListener('load',()=>{
     const kpi=document.getElementById('kpi-quality-sub'); if(kpi && /%Closure/.test(kpi.textContent)) kpi.textContent=kpi.textContent.replace('%Closure','NCR % Closure');
   }
 
-  // One-click manual attendance: absent -> Present before/equal 10:00 AM, Late after 10:00 AM. Second click resets to Absent.
+  // One-click manual attendance: first click = Present (before 10 AM) or Late (after 10 AM); second click resets to Absent.
   window.toggleAttendance=function(idx){
-    const people=(typeof window.getData==='function'?window.getData('att_people'):getArr('att_people'))||[];
+    var people;
+    try{ people=JSON.parse(localStorage.getItem('att_people')||'[]')||[]; }catch(e){ people=[]; }
     if(!people[idx]) return;
-    const cur=people[idx].status || (people[idx].present?'present':'absent');
-    const markingAbsent = cur==='present' || cur==='late';
-    const next = markingAbsent ? 'absent' : (isLateNow() ? 'late' : 'present');
+    var cur=people[idx].status||(people[idx].present?'present':'absent');
+    var markingAbsent=(cur==='present'||cur==='late');
+    var next=markingAbsent?'absent':(isLateNow()?'late':'present');
     people[idx].status=next;
     people[idx].present=(next==='present'||next==='late');
     if(people[idx].present){
-      const t=nowTime();
+      var t=nowTime();
       people[idx].scanTime=t; people[idx].timeIn=t; people[idx].time=t;
       people[idx].scannedAt=new Date().toISOString();
       people[idx].attendanceSource='Manual attendance';
     }else{
       people[idx].scanTime=''; people[idx].timeIn=''; people[idx].time=''; people[idx].scannedAt=''; people[idx].attendanceSource=''; people[idx].qrValue='';
     }
-    if(typeof window.setData==='function'){window.setData('att_people',people); window.setData('ops_attendance_people',people);} else {setArr('att_people',people); setArr('ops_attendance_people',people);}
+    try{ localStorage.setItem('att_people',JSON.stringify(people)); localStorage.setItem('ops_attendance_people',JSON.stringify(people)); }catch(e){}
     if(typeof window.renderAttendance==='function') window.renderAttendance();
-    notify((people[idx].name||'Attendee')+' marked as '+next.toUpperCase()+(next==='late'?' because time is past 10:00 AM.':''));
-  };
-
-  // Render attendance cards with clear one-click instruction.
-  const prevRender=window.renderAttendance;
-  window.renderAttendance=function(){
-    if(typeof prevRender==='function') prevRender();
-    document.querySelectorAll('#att-grid .att-card').forEach(card=>{
-      card.title='One click: Present before 10:00 AM, Late after 10:00 AM. Click again to reset to Absent.';
-    });
+    notify((people[idx].name||'Attendee')+' marked as '+next.toUpperCase()+(next==='late'?' (past 10:00 AM)':''));
   };
 
   const row=(label,value)=>`<tr><td class="record-data-label">${esc(label)}</td><td class="record-data-value">${value}</td></tr>`;
@@ -8158,33 +8179,18 @@ window.addEventListener('load',()=>{
   margin-right: auto !important;
 }
 
-/* 6. Responsive — CRITICAL: undo the flex width:0 trick on mobile
-   because .layout becomes display:block, not flex, so width:0 collapses .main */
+/* 6. Responsive */
 @media (max-width: 1024px) {
-  .main {
-    padding: 16px !important;
-    display: block !important;   /* no longer a flex child */
-    width: 100% !important;      /* override width:0 */
-    min-width: 0 !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-  .page {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+  .main { padding: 20px 24px !important; }
+}
+@media (max-width: 768px) {
+  .main { padding: 14px 16px !important; }
   .page > *,
   #page-qr > *, #page-analytics > *,
   #page-actions > *, #page-reports > *,
   #page-users > *, #page-export > * {
     max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
   }
-}
-@media (max-width: 480px) {
-  .main { padding: 10px !important; }
 }
 </style>
 
@@ -8577,9 +8583,21 @@ window.addEventListener('load',()=>{
         try{
           var fbUsers = JSON.parse(raw._data);
           if(Array.isArray(fbUsers)){
-            // Merge: Firebase is the source of truth
-            localStorage.setItem('ops_registered_users', JSON.stringify(fbUsers));
-            console.log('[CMI UserSync] Pulled', fbUsers.length, 'user(s) from Firebase.');
+            // Merge: preserve local role edits that haven't been pushed yet
+            // by merging local changes on top of Firebase list
+            var local = localReadUsers();
+            var merged = fbUsers.map(function(fu){
+              var lo = local.find(function(u){ return (u.username||'').toLowerCase() === (fu.username||'').toLowerCase(); });
+              // If local has a newer role (edited via admin), keep it
+              if(lo && lo.role && lo.role !== fu.role) return Object.assign({}, fu, { role: lo.role });
+              return fu;
+            });
+            // Add any local-only users not yet in Firebase
+            local.forEach(function(lo){
+              if(!merged.find(function(u){ return (u.username||'').toLowerCase() === (lo.username||'').toLowerCase(); })) merged.push(lo);
+            });
+            localStorage.setItem('ops_registered_users', JSON.stringify(merged));
+            console.log('[CMI UserSync] Pulled', merged.length, 'user(s) from Firebase (roles preserved).');
           }
         }catch(e){}
       }
@@ -8610,31 +8628,28 @@ window.addEventListener('load',()=>{
         var fbUsers = JSON.parse(raw._data);
         if(!Array.isArray(fbUsers)) return;
         var local = localReadUsers();
-
-        // ── Guard: preserve the role of the currently logged-in user ──
-        // Firebase sync must never silently downgrade an active session role.
-        var sessionRole = localStorage.getItem('ops_current_user_role') || '';
-        var sessionUser = localStorage.getItem('ops_current_user_data') || '';
-        if(sessionRole && sessionUser){
-          try{
-            var su = JSON.parse(sessionUser);
-            fbUsers = fbUsers.map(function(fu){
-              var isMe = (su.username && fu.username === su.username) ||
-                         (su.email    && fu.email    === su.email);
-              if(isMe && fu.role !== sessionRole){
-                fu = Object.assign({}, fu, { role: sessionRole });
-              }
-              return fu;
-            });
-          }catch(e){}
-        }
-
-        // Only update if Firebase has newer or more users
         var fbStr = JSON.stringify(fbUsers);
         var localStr = JSON.stringify(local);
         if(fbStr !== localStr){
           localStorage.setItem('ops_registered_users', JSON.stringify(fbUsers));
-          // Refresh users table if visible
+          // After syncing, re-apply current session role from updated list
+          // so role changes from any device are reflected without re-login
+          try{
+            var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+            if(sessionData && sessionData.username){
+              var myUsername = (sessionData.username || '').toLowerCase();
+              var updated = fbUsers.find(function(u){ return (u.username||'').toLowerCase() === myUsername; });
+              if(updated && updated.role && updated.role !== sessionData.role){
+                sessionData.role = updated.role;
+                localStorage.setItem('ops_current_user_data', JSON.stringify(sessionData));
+                var displayName = sessionData.fullname || sessionData.username;
+                localStorage.setItem('ops_demo_user', displayName + ' / ' + updated.role);
+                localStorage.setItem('ops_current_user_role', updated.role);
+                if(typeof window.applyAuthState === 'function') window.applyAuthState();
+                console.log('[CMI UserSync] Session role updated to:', updated.role);
+              }
+            }
+          }catch(e){}
           if(typeof window.renderUsersTable === 'function'){
             try{ window.renderUsersTable(); }catch(e){}
           }
@@ -8708,11 +8723,35 @@ window.addEventListener('load',()=>{
           console.log('[CMI UserSync] Migrated', local.length, 'local user(s) to Firebase.');
         }
       } else {
-        // Firebase has data — pull it to keep this device in sync
+        // Firebase has data — merge it preserving local role edits
         try{
           var fbUsers = JSON.parse(raw._data);
           if(Array.isArray(fbUsers)){
-            localStorage.setItem('ops_registered_users', JSON.stringify(fbUsers));
+            var local = localReadUsers();
+            var merged = fbUsers.map(function(fu){
+              var lo = local.find(function(u){ return (u.username||'').toLowerCase() === (fu.username||'').toLowerCase(); });
+              if(lo && lo.role && lo.role !== fu.role) return Object.assign({}, fu, { role: lo.role });
+              return fu;
+            });
+            local.forEach(function(lo){
+              if(!merged.find(function(u){ return (u.username||'').toLowerCase() === (lo.username||'').toLowerCase(); })) merged.push(lo);
+            });
+            localStorage.setItem('ops_registered_users', JSON.stringify(merged));
+            // If the currently logged-in user is in this list, re-apply their stored role
+            try{
+              var sessionData = JSON.parse(localStorage.getItem('ops_current_user_data') || 'null');
+              if(sessionData && sessionData.username){
+                var myUsername = (sessionData.username || '').toLowerCase();
+                var inList = merged.find(function(u){ return (u.username||'').toLowerCase() === myUsername; });
+                if(inList && inList.role !== sessionData.role){
+                  // Local session role wins over Firebase on this device
+                  inList.role = sessionData.role;
+                  localStorage.setItem('ops_registered_users', JSON.stringify(merged));
+                  // Also push corrected role back to Firebase so it persists everywhere
+                  syncSaveUsers(merged);
+                }
+              }
+            }catch(e){}
           }
         }catch(e){}
       }
@@ -8763,54 +8802,6 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
-<script id="cmi-delete-all-concerns-patch">
-(function(){
-  /**
-   * deleteAllConcerns()
-   * Clears every entry in the Concerns Log (ops_concerns) after confirmation.
-   * Also resets the action-plan concern picker and all related dashboard counts.
-   */
-  window.deleteAllConcerns = function(){
-    const concerns = (typeof window.getData === 'function')
-      ? window.getData('ops_concerns')
-      : JSON.parse(localStorage.getItem('ops_concerns') || '[]');
-
-    if(!Array.isArray(concerns) || concerns.length === 0){
-      if(typeof window.showNotif === 'function') window.showNotif('No concerns to delete.', true);
-      return;
-    }
-
-    const confirmed = window.confirm(
-      'Delete ALL ' + concerns.length + ' concern record(s) in the Concerns Log?\n\nThis cannot be undone.'
-    );
-    if(!confirmed) return;
-
-    // Wipe the concerns store
-    if(typeof window.setData === 'function'){
-      window.setData('ops_concerns', []);
-    } else {
-      localStorage.setItem('ops_concerns', '[]');
-    }
-
-    // Refresh all views that show concern data
-    if(typeof window.renderConcerns === 'function')       window.renderConcerns();
-    if(typeof window.renderConcernCount === 'function')   window.renderConcernCount();
-    if(typeof window.renderConcernActionPicker === 'function') window.renderConcernActionPicker();
-    if(typeof window.renderActionPlans === 'function')    window.renderActionPlans();
-    if(typeof window.renderDashboard === 'function')      window.renderDashboard();
-
-    // Clear linked concern ID from the action plan form if one was selected
-    const apConcernId = document.getElementById('ap-concern-id');
-    if(apConcernId) apConcernId.value = '';
-    const apLinkedInfo = document.getElementById('ap-linked-concern-info');
-    if(apLinkedInfo){ apLinkedInfo.style.display = 'none'; apLinkedInfo.innerHTML = ''; }
-
-    if(typeof window.showNotif === 'function'){
-      window.showNotif('All concern records deleted successfully.');
-    }
-  };
-})();
-</script>
 
 </body>
 </html>
