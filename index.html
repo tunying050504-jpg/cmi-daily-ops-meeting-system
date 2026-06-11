@@ -9867,61 +9867,23 @@ button,.btn,.nav-item,.att-card{touch-action:manipulation;-webkit-tap-highlight-
 </script>
 
 
-<!-- USER REQUEST PATCH 2026-06-11: only page scroll + attendance reset to absent -->
-<style id="cmi-user-request-page-only-scroll-20260611">
-  /* Main/Tools navigation should not create its own vertical scrollbar. Let the whole screen/page handle scrolling. */
-  html,
-  body{
-    overflow-y:auto!important;
-    overscroll-behavior-y:auto!important;
-  }
-  .layout,
-  .main{
-    overflow-y:visible!important;
-  }
-  .sidebar{
-    overflow-y:visible!important;
-    overflow-x:visible!important;
-    max-height:none!important;
-  }
-  .sidebar .sidebar-section,
-  .sidebar .nav-item{
-    overflow:visible!important;
-  }
 
-  @media(min-width:1025px){
-    .sidebar{
-      height:auto!important;
-      min-height:calc(100vh - 72px)!important;
-      align-self:flex-start!important;
-    }
-  }
-
-  @media(max-width:1024px){
-    body.mobile-menu-open{
-      overflow-y:auto!important;
-    }
-    body.mobile-menu-open .sidebar{
-      position:absolute!important;
-      height:auto!important;
-      min-height:100dvh!important;
-      max-height:none!important;
-      overflow-y:visible!important;
-    }
-    .mobile-bottom-nav{
-      overflow:visible!important;
-    }
-  }
-</style>
-
-<script id="cmi-user-request-attendance-absent-reset-20260611">
+<script id="attendance-general-rule-final-override">
+/* FINAL ATTENDANCE ENGINE
+   Rule: before 10:00 AM or 10:00 AM = PRESENT; after 10:00 AM = LATE.
+   Manual click, manual add, and QR submit all use the same rule and lock each attendee once recorded.
+*/
 (function(){
   'use strict';
-  if(window.__CMI_USER_ATTENDANCE_ABSENT_RESET_20260611__) return;
-  window.__CMI_USER_ATTENDANCE_ABSENT_RESET_20260611__ = true;
 
-  var RESET_ONCE_KEY = 'cmi_attendance_back_to_absent_once_20260611_v2';
-  var DEFAULTS = (Array.isArray(window.DEFAULT_ATTENDEES) && window.DEFAULT_ATTENDEES.length ? window.DEFAULT_ATTENDEES : [
+  const ATT_KEYS = ['att_people','ops_attendance_people','att_records','ops_qr_scan_history'];
+  const originalGetData = window.getData;
+  const originalSetData = window.setData;
+  let firebaseListenerRef = null;
+  let firebaseListenerCb = null;
+  let refreshTimer = null;
+
+  const FALLBACK_DEFAULTS = [
     {name:'Plant Manager',dept:'Management',role:'Head'},
     {name:'Production Manager 1',dept:'Production',role:'Manager'},
     {name:'Production Manager 2',dept:'Production',role:'Manager'},
@@ -9933,298 +9895,588 @@ button,.btn,.nav-item,.att-card{touch-action:manipulation;-webkit-tap-highlight-
     {name:'Sanitations Head',dept:'Sanitation',role:'Head'},
     {name:'B-MIRK Coordinator',dept:'Agency',role:'Coordinator'},
     {name:'EXPEDISE Coordinator',dept:'Agency',role:'Coordinator'}
-  ]).map(function(p){ return {name:p.name, dept:p.dept || p.department || '', role:p.role || p.position || ''}; });
-  window.DEFAULT_ATTENDEES = DEFAULTS.map(function(p){ return Object.assign({}, p); });
+  ];
 
-  function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function readArr(key){ try{ var val = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(val) ? val : []; }catch(e){ return []; } }
-  function rawWrite(key, value){ try{ localStorage.setItem(key, JSON.stringify(Array.isArray(value) ? value : [])); }catch(e){} }
-  function writeArr(key, value){
-    try{
-      if(typeof window.setData === 'function'){
-        window.setData(key, Array.isArray(value) ? value : []);
-        return;
-      }
-    }catch(e){ console.warn('[CMI attendance reset] setData fallback for', key, e); }
-    rawWrite(key, value);
+  function defaults(){
+    const list = Array.isArray(window.DEFAULT_ATTENDEES) && window.DEFAULT_ATTENDEES.length ? window.DEFAULT_ATTENDEES : FALLBACK_DEFAULTS;
+    return list.map(p => ({
+      name: String(p.name || '').trim(),
+      dept: String(p.dept || p.department || 'Unassigned').trim() || 'Unassigned',
+      department: String(p.dept || p.department || 'Unassigned').trim() || 'Unassigned',
+      role: String(p.role || p.position || '').trim(),
+      position: String(p.role || p.position || '').trim()
+    })).filter(p => p.name);
   }
+
+  function esc(v){
+    return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function low(v){ return String(v || '').trim().toLowerCase(); }
   function todayISO(){ return new Date().toLocaleDateString('en-CA'); }
-  function selectedDate(){ return document.getElementById('att-date')?.value || document.getElementById('dept-qr-date')?.value || todayISO(); }
-  function nowTime(){ return new Date().toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
-  function isLateByRule(){ var d = new Date(); var cutoff = new Date(d); cutoff.setHours(10,0,0,0); return d > cutoff; }
-  function statusByRule(){ return isLateByRule() ? 'late' : 'present'; }
-  function notify(message, isError){ if(typeof window.showNotif === 'function') window.showNotif(message, !!isError); else if(isError) alert(message); else console.log(message); }
-  function blankPerson(p){
-    return {
-      name:p.name,
-      dept:p.dept || p.department || '',
-      department:p.dept || p.department || '',
-      role:p.role || p.position || '',
-      position:p.role || p.position || '',
-      present:false,
-      status:'absent',
-      time:'',
-      timeIn:'',
-      scanTime:'',
-      scannedAt:'',
-      createdAt:'',
-      qrValue:'',
-      qrDepartment:'',
-      departmentQRDate:'',
-      attendanceSource:'Default attendee',
-      isDefault:true
-    };
+  function selectedDate(){
+    const params = new URLSearchParams(location.search);
+    return document.getElementById('att-date')?.value ||
+           document.getElementById('dept-qr-date')?.value ||
+           params.get('qr_date') ||
+           todayISO();
   }
-  function blankDefaults(){ return DEFAULTS.map(blankPerson); }
-  function statusOf(p){ var s = String((p && (p.status || p.attendanceStatus)) || (p && p.present ? 'present' : 'absent')).toLowerCase(); return s === 'late' ? 'late' : (s === 'present' ? 'present' : 'absent'); }
-  function timeOf(p){ return (p && (p.time || p.timeIn || p.scanTime)) || ''; }
-  function normalizePerson(p){
-    p = p || {};
-    var s = statusOf(p);
-    var dept = p.dept || p.department || p.qrDepartment || '';
-    var role = p.role || p.position || '';
-    var t = s === 'absent' ? '' : timeOf(p);
-    return Object.assign({}, p, {
-      name:String(p.name || p.employeeName || p.attendee || '').trim(),
-      dept:dept,
-      department:dept,
-      role:role,
-      position:role,
-      present:s === 'present' || s === 'late',
-      status:s,
+  function nowISO(){ return new Date().toISOString(); }
+  function timeNow(){ return new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  function statusByRule(dateObj){
+    const d = dateObj || new Date();
+    const mins = d.getHours() * 60 + d.getMinutes();
+    return mins <= 600 ? 'present' : 'late';
+  }
+  function statusText(s){ return s === 'late' ? 'LATE' : (s === 'present' ? 'PRESENT' : 'ABSENT'); }
+  function notify(msg, isError){
+    if(typeof window.showNotif === 'function') window.showNotif(msg, !!isError);
+    else if(isError) alert(msg);
+    else console.log(msg);
+  }
+  function readArray(key){
+    try{ const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : []; }
+    catch(e){ return []; }
+  }
+  function writeArray(key, val){ localStorage.setItem(key, JSON.stringify(Array.isArray(val) ? val : [])); }
+  function isDefaultName(name){ return defaults().some(p => low(p.name) === low(name)); }
+  function personKey(p){ return low(p && (p.name || p.employeeName || p.attendee || p.fullName || '')); }
+  function safeKey(v){ return String(v || 'record').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'record'; }
+  function statusOf(p){
+    const s = low(p && (p.status || p.attendanceStatus));
+    if(s === 'present' || s === 'late' || s === 'absent') return s;
+    return p && p.present ? 'present' : 'absent';
+  }
+  function isLocked(p){
+    const s = statusOf(p);
+    return !!(p && (p.locked || p.attendanceLocked || s === 'present' || s === 'late'));
+  }
+  function timeOf(p){ return p && (p.timeIn || p.scanTime || p.time || p.scannedTime || ''); }
+  function blankDefault(p){
+    return normalizePerson({
+      name:p.name,
+      dept:p.dept,
+      department:p.department || p.dept,
+      role:p.role,
+      position:p.position || p.role,
+      status:'absent',
+      present:false,
+      locked:false,
+      attendanceLocked:false,
+      time:'', timeIn:'', scanTime:'', scannedAt:'', attendanceSource:'Default attendee', isDefault:true
+    });
+  }
+  function normalizePerson(p, fallback){
+    p = p || {}; fallback = fallback || {};
+    const name = String(p.name || p.employeeName || p.attendee || p.fullName || fallback.name || '').trim();
+    const dept = String(p.dept || p.department || p.qrDepartment || fallback.dept || fallback.department || 'Unassigned').trim() || 'Unassigned';
+    const role = String(p.role || p.position || fallback.role || fallback.position || '').trim();
+    const st = statusOf(p);
+    const t = timeOf(p);
+    const locked = !!(p.locked || p.attendanceLocked || st === 'present' || st === 'late');
+    return {
+      ...p,
+      name, dept, department:dept,
+      role, position:role,
+      status:st,
+      present:st === 'present' || st === 'late',
+      locked,
+      attendanceLocked:locked,
       time:t,
       timeIn:t,
       scanTime:t,
-      scannedAt:s === 'absent' ? '' : (p.scannedAt || p.createdAt || ''),
-      attendanceSource:s === 'absent' ? (p.isDefault ? 'Default attendee' : (p.attendanceSource || '')) : (p.attendanceSource || 'Attendance')
+      scannedAt:p.scannedAt || p.createdAt || '',
+      attendanceSource:p.attendanceSource || p.source || p.scanType || (p.qrValue ? 'QR attendance' : 'Manual attendance'),
+      isDefault:isDefaultName(name)
+    };
+  }
+  function normalizeRoster(list){
+    list = Array.isArray(list) ? list : [];
+    const result = defaults().map(d => {
+      const found = list.find(p => personKey(p) === low(d.name));
+      return found ? normalizePerson(found, d) : blankDefault(d);
     });
+    list.forEach(p => {
+      const name = personKey(p);
+      if(!name || isDefaultName(name)) return;
+      const normalized = normalizePerson(p);
+      const idx = result.findIndex(x => personKey(x) === name);
+      if(idx >= 0) result[idx] = {...result[idx], ...normalized, isDefault:false};
+      else result.push({...normalized, isDefault:false});
+    });
+    return result;
   }
-  function currentPeople(){
-    var list = readArr('att_people');
-    if(!list.length) list = blankDefaults();
-    return list.map(normalizePerson).filter(function(p){ return p.name; });
-  }
-  function saveVisiblePeople(people){
-    writeArr('att_people', people);
-    writeArr('ops_attendance_people', people);
+  function records(){ return readArray('att_records').filter(r => r && r.date).map(r => ({...r, people:normalizeRoster(r.people || [])})); }
+  function recordFor(date){ return records().find(r => String(r.date) === String(date)); }
+  function baseRosterFor(date){
+    date = date || selectedDate();
+    const rec = recordFor(date);
+    if(rec) return normalizeRoster(rec.people || []);
+    const currentDate = localStorage.getItem('att_people_date') || '';
+    const current = String(currentDate) === String(date) ? readArray('att_people') : [];
+    const hasUsefulCurrent = current.some(p => isLocked(p) || !isDefaultName(p && p.name));
+    return hasUsefulCurrent ? normalizeRoster(current) : defaults().map(blankDefault);
   }
   function saveRecord(date, people, source){
-    var records = readArr('att_records').filter(function(r){ return String(r.date) !== String(date); });
-    records.push({date:date, people:JSON.parse(JSON.stringify(people)), savedAt:new Date().toISOString(), source:source || 'Attendance update'});
-    records.sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
-    writeArr('att_records', records);
+    date = date || selectedDate();
+    const normalized = normalizeRoster(people);
+    const list = records().filter(r => String(r.date) !== String(date));
+    list.push({date, people:JSON.parse(JSON.stringify(normalized)), savedAt:nowISO(), source:source || 'Attendance saved'});
+    list.sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    writeArray('att_records', list);
+    if(String(date) === String(selectedDate())){
+      writeArray('att_people', normalized);
+      writeArray('ops_attendance_people', normalized);
+      localStorage.setItem('att_people_date', String(date));
+    }
+    return normalized;
   }
-  function countByStatus(people){
-    return people.reduce(function(acc,p){ var s = statusOf(p); acc[s] = (acc[s] || 0) + 1; return acc; }, {present:0, late:0, absent:0});
+  function counts(people){
+    return people.reduce((a,p) => { a[statusOf(p)] = (a[statusOf(p)] || 0) + 1; return a; }, {present:0,late:0,absent:0});
   }
-  function removeDateCaches(date){
-    writeArr('ops_qr_scan_history', readArr('ops_qr_scan_history').filter(function(h){ return String(h.date) !== String(date); }));
-    Object.keys(localStorage).forEach(function(k){
-      var low = k.toLowerCase();
-      if(k.indexOf(date) !== -1 && (low.indexOf('attendance') !== -1 || low.indexOf('scan') !== -1 || low.indexOf('qr') !== -1)){
-        try{ localStorage.removeItem(k); }catch(e){}
-      }
+  function findEmployee(raw){
+    const value = low(raw);
+    const list = typeof originalGetData === 'function' ? (originalGetData('ops_employees') || []) : readArray('ops_employees');
+    return (Array.isArray(list) ? list : []).find(e => low(e.status || 'Active') !== 'inactive' && [e.id,e.qr,e.name,e.employeeName].some(x => low(x) === value));
+  }
+  function parseQR(raw){
+    raw = String(raw || '').trim();
+    if(!raw) return {name:'', raw};
+    const emp = findEmployee(raw);
+    if(emp) return {name:emp.name || emp.employeeName || raw, dept:emp.department || emp.dept || '', role:emp.position || emp.role || '', employeeId:emp.id || '', raw};
+    try{
+      const obj = JSON.parse(raw);
+      const name = obj.name || obj.employeeName || obj.employee || obj.fullName || obj.id || obj.qr || raw;
+      return {name:String(name).trim(), dept:obj.dept || obj.department || obj.qrDepartment || '', role:obj.role || obj.position || '', employeeId:obj.id || obj.employeeId || '', raw};
+    }catch(e){}
+    if(/^https?:\/\//i.test(raw)){
+      try{
+        const u = new URL(raw);
+        const name = u.searchParams.get('name') || u.searchParams.get('employee') || u.searchParams.get('employeeName') || u.searchParams.get('id') || u.pathname.split('/').filter(Boolean).pop() || raw;
+        return {name:String(name).replace(/[-_]/g,' ').trim(), dept:u.searchParams.get('department') || u.searchParams.get('dept') || '', role:u.searchParams.get('role') || u.searchParams.get('position') || '', raw};
+      }catch(e){}
+    }
+    if(raw.includes('|')){
+      const parts = raw.split('|').map(x => x.trim()).filter(Boolean);
+      const data = {};
+      parts.forEach(part => { const m = part.match(/^([^:]+):\s*(.*)$/); if(m) data[low(m[1])] = m[2].trim(); });
+      return {name:data.name || data.employee || parts[0], dept:data.department || data.dept || '', role:data.role || data.position || '', raw};
+    }
+    return {name:raw, raw};
+  }
+  function addHistory(date, person){
+    const history = readArray('ops_qr_scan_history');
+    const exists = history.some(h => String(h.date) === String(date) && low(h.name) === low(person.name));
+    if(!exists){
+      history.push({
+        date,
+        time:timeOf(person),
+        name:person.name,
+        department:person.department || person.dept || 'Unassigned',
+        dept:person.department || person.dept || 'Unassigned',
+        status:statusOf(person),
+        role:person.role || person.position || '',
+        qrValue:person.qrValue || '',
+        scanType:person.scanType || person.attendanceSource || 'Attendance',
+        createdAt:person.createdAt || person.scannedAt || nowISO()
+      });
+      writeArray('ops_qr_scan_history', history);
+    }
+  }
+  function recordPerson(date, info, source, allowCreate){
+    date = date || selectedDate();
+    const name = String(info.name || '').trim();
+    if(!name) return {ok:false, reason:'missing-name'};
+    const people = baseRosterFor(date);
+    let idx = people.findIndex(p => personKey(p) === low(name));
+    if(idx >= 0 && isLocked(people[idx])) return {ok:false, reason:'locked', person:people[idx], people};
+    if(idx < 0 && allowCreate === false) return {ok:false, reason:'not-found', people};
+    const now = new Date();
+    const st = statusByRule(now);
+    const t = timeNow();
+    const existing = idx >= 0 ? people[idx] : {};
+    const person = normalizePerson({
+      ...existing,
+      ...info,
+      name,
+      dept:info.dept || info.department || existing.dept || existing.department || 'Unassigned',
+      department:info.department || info.dept || existing.department || existing.dept || 'Unassigned',
+      role:info.role || info.position || existing.role || existing.position || '',
+      position:info.position || info.role || existing.position || existing.role || '',
+      status:st,
+      present:true,
+      locked:true,
+      attendanceLocked:true,
+      time:t,
+      timeIn:t,
+      scanTime:t,
+      scannedAt:now.toISOString(),
+      createdAt:now.toISOString(),
+      attendanceSource:source || 'Attendance',
+      scanType:source || 'Attendance'
     });
+    if(idx >= 0) people[idx] = person; else people.push({...person, isDefault:false});
+    const saved = saveRecord(date, people, source || 'Attendance');
+    addHistory(date, person);
+    firebaseSavePerson(date, person);
+    renderAll();
+    return {ok:true, status:st, time:t, person, people:saved};
+  }
+  function renderAll(){
+    try{ window.renderAttendance && window.renderAttendance(); }catch(e){ console.warn(e); }
+    try{ window.renderAttendanceHistory && window.renderAttendanceHistory(); }catch(e){ console.warn(e); }
+    try{ window.renderQRScanHistory && window.renderQRScanHistory(); }catch(e){ console.warn(e); }
   }
   function getDb(){
     try{
       if(!window.firebase || !window.firebase.database) return null;
-      if(window.firebaseConfig && firebase.apps && !firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+      if(window.firebaseConfig && (!firebase.apps || !firebase.apps.length)) firebase.initializeApp(window.firebaseConfig);
       return firebase.database();
     }catch(e){ return null; }
   }
-  async function clearOnlineDate(date){
-    var db = getDb();
+  function setFirebaseStatus(msg, good){
+    const el = document.getElementById('firebase-sync-status');
+    if(el){ el.textContent = msg; el.style.color = good ? '#0f5132' : '#b42318'; el.style.fontWeight = '900'; }
+  }
+  async function firebaseSavePerson(date, person){
+    const db = getDb();
     if(!db) return false;
-    await db.ref('attendanceRecords/' + date).remove();
     try{
-      var snap = await db.ref('qrScanHistory').orderByChild('date').equalTo(date).get();
-      var updates = {};
-      snap.forEach(function(child){ updates[child.key] = null; });
-      if(Object.keys(updates).length) await db.ref('qrScanHistory').update(updates);
-    }catch(e){}
-    try{ await db.ref('deletedAttendanceDates/' + date).set({date:date, resetToAbsentAt:new Date().toISOString()}); }catch(e){}
-    return true;
+      const dept = person.department || person.dept || 'Unassigned';
+      const key = safeKey(dept + '_' + person.name);
+      await db.ref('attendanceRecords/' + date + '/' + key).set({...person, date, department:dept, dept, firebaseKey:key, savedAt:nowISO(), finalRuleLocked:true});
+      return true;
+    }catch(e){ console.warn('[Attendance Final] Firebase save failed:', e); return false; }
   }
-  function refresh(){
-    try{ window.renderAttendance && window.renderAttendance(); }catch(e){}
-    try{ window.renderAttendanceHistory && window.renderAttendanceHistory(); }catch(e){}
-    try{ window.renderQRScanHistory && window.renderQRScanHistory(); }catch(e){}
-    try{ window.renderDashboard && window.renderDashboard(); }catch(e){}
-  }
-  async function resetAttendanceBackToAbsent(date, options){
-    options = options || {};
-    date = date || selectedDate();
-    var reset = blankDefaults();
-    saveVisiblePeople(reset);
-    saveRecord(date, reset, 'Reset back to absent');
-    removeDateCaches(date);
-    if(options.clearOnline){
-      try{ await clearOnlineDate(date); }catch(e){ console.warn('[CMI attendance reset] Online reset failed:', e); }
-    }
-    refresh();
-    if(!options.silent) notify('Attendance reset back to ABSENT for ' + date + '.');
-    return reset;
+  function mergeRemoteRows(date, rows){
+    if(!Array.isArray(rows) || !rows.length) return;
+    const people = baseRosterFor(date);
+    let changed = false;
+    rows.forEach(row => {
+      const name = String(row.name || row.employeeName || row.attendee || '').trim();
+      if(!name) return;
+      const idx = people.findIndex(p => personKey(p) === low(name));
+      if(idx >= 0 && isLocked(people[idx])) return;
+      const st = statusOf(row) === 'late' ? 'late' : 'present';
+      const person = normalizePerson({
+        ...row,
+        name,
+        dept:row.dept || row.department || row.qrDepartment || (idx >= 0 ? people[idx].dept : 'Unassigned'),
+        department:row.department || row.dept || row.qrDepartment || (idx >= 0 ? people[idx].department : 'Unassigned'),
+        role:row.role || row.position || (idx >= 0 ? people[idx].role : ''),
+        position:row.position || row.role || (idx >= 0 ? people[idx].position : ''),
+        status:st,
+        present:true,
+        locked:true,
+        attendanceLocked:true,
+        time:row.timeIn || row.scanTime || row.time || timeNow(),
+        timeIn:row.timeIn || row.scanTime || row.time || timeNow(),
+        scanTime:row.scanTime || row.timeIn || row.time || timeNow(),
+        attendanceSource:row.attendanceSource || row.source || row.scanType || 'QR attendance'
+      });
+      if(idx >= 0) people[idx] = person; else people.push({...person, isDefault:false});
+      addHistory(date, person);
+      changed = true;
+    });
+    if(changed){ saveRecord(date, people, 'QR/Firebase attendance sync'); renderAll(); }
   }
 
+  window.getData = function(key){
+    if(ATT_KEYS.includes(key)) return readArray(key);
+    return typeof originalGetData === 'function' ? originalGetData.call(this, key) : readArray(key);
+  };
+  window.setData = function(key, val){
+    if(key === 'att_people' || key === 'ops_attendance_people'){
+      const people = normalizeRoster(val);
+      writeArray(key, people);
+      if(key === 'att_people') writeArray('ops_attendance_people', people);
+      return;
+    }
+    if(key === 'att_records'){
+      writeArray('att_records', (Array.isArray(val) ? val : []).filter(r => r && r.date).map(r => ({...r, people:normalizeRoster(r.people || [])})));
+      return;
+    }
+    if(key === 'ops_qr_scan_history'){
+      writeArray('ops_qr_scan_history', Array.isArray(val) ? val : []);
+      return;
+    }
+    if(typeof originalSetData === 'function') return originalSetData.call(this, key, val);
+    writeArray(key, val);
+  };
+
   window.renderAttendance = function(){
-    var dateEl = document.getElementById('att-date');
+    const dateEl = document.getElementById('att-date');
     if(dateEl && !dateEl.value) dateEl.value = todayISO();
-    var people = currentPeople();
-    if(!people.length){ people = blankDefaults(); saveVisiblePeople(people); }
-    var grid = document.getElementById('att-grid');
+    const date = selectedDate();
+    const people = baseRosterFor(date);
+    writeArray('att_people', people);
+    writeArray('ops_attendance_people', people);
+    localStorage.setItem('att_people_date', String(date));
+    const grid = document.getElementById('att-grid');
     if(!grid) return;
-    var counts = countByStatus(people);
-    grid.innerHTML = people.map(function(p,i){
-      var s = statusOf(p);
-      var label = s === 'present' ? '✓ Present' : (s === 'late' ? '⏰ Late' : '✕ Absent');
-      var detail = [p.dept || p.department, p.role || p.position].filter(Boolean).join(' · ') || '—';
-      var source = (s !== 'absent' && p.attendanceSource && p.attendanceSource !== 'Default attendee') ? '<div class="att-dept" style="margin-top:6px;">' + esc(p.attendanceSource) + (timeOf(p) ? ' · ' + esc(timeOf(p)) : '') + '</div>' : '';
-      return '<div class="att-card ' + esc(s) + '" onclick="toggleAttendance(' + i + ')" title="One click marks Present at or before 10:00 AM, Late after 10:00 AM. Click again to reset to Absent.">' +
-        '<div class="att-name">' + esc(p.name) + '</div>' +
-        '<div class="att-dept">' + esc(detail) + '</div>' +
-        '<div class="att-status">' + label + '</div>' + source + '</div>';
+    const c = counts(people);
+    grid.innerHTML = people.map((p,i) => {
+      const s = statusOf(p);
+      const marked = isLocked(p);
+      const label = s === 'present' ? '✓ Present' : (s === 'late' ? '⏰ Late' : '✕ Absent');
+      const meta = [p.dept || p.department, p.role || p.position].filter(Boolean).join(' · ') || '—';
+      const time = timeOf(p);
+      const source = marked ? `<div class="att-dept" style="margin-top:7px;font-weight:700;">🔒 ${esc(p.attendanceSource || 'Recorded')}${time ? ' · ' + esc(time) : ''}</div>` : '<div class="att-dept" style="margin-top:7px;">Click once to time in</div>';
+      return `<div class="att-card ${esc(s)} ${marked ? 'attendance-locked' : ''}" onclick="toggleAttendance(${i})" title="${marked ? 'Attendance already locked' : 'Click to mark using the 10:00 AM rule'}">
+        <div class="att-name">${esc(p.name)}</div>
+        <div class="att-dept">${esc(meta)}</div>
+        <div class="att-status">${label}</div>
+        ${source}
+      </div>`;
     }).join('');
-    var badge = document.getElementById('att-present-count');
-    if(badge) badge.textContent = counts.present + ' present · ' + counts.late + ' late · ' + counts.absent + ' absent';
+    const badge = document.getElementById('att-present-count');
+    if(badge) badge.textContent = `${c.present} present · ${c.late} late · ${c.absent} absent`;
   };
 
   window.toggleAttendance = function(idx){
-    var date = selectedDate();
-    var people = currentPeople();
-    if(!people[idx]) return;
-    var current = statusOf(people[idx]);
-    var next = current === 'absent' ? statusByRule() : 'absent';
-    var t = next === 'absent' ? '' : nowTime();
-    people[idx] = normalizePerson(Object.assign({}, people[idx], {
-      status:next,
-      present:next !== 'absent',
-      time:t,
-      timeIn:t,
-      scanTime:t,
-      scannedAt:next === 'absent' ? '' : new Date().toISOString(),
-      attendanceSource:next === 'absent' ? 'Manual reset to absent' : 'Manual attendance'
-    }));
-    saveVisiblePeople(people);
-    saveRecord(date, people, 'Manual attendance');
-    refresh();
-    notify((people[idx].name || 'Attendee') + ' marked as ' + next.toUpperCase() + '.');
+    const date = selectedDate();
+    const people = baseRosterFor(date);
+    const person = people[idx];
+    if(!person) return;
+    if(isLocked(person)){
+      notify(person.name + ' is already recorded as ' + statusText(statusOf(person)) + '. Locked na ito para hindi magalaw.', true);
+      return;
+    }
+    const res = recordPerson(date, {name:person.name, dept:person.dept, department:person.department, role:person.role, position:person.position}, 'Manual default attendee', false);
+    if(res.ok) notify(`${person.name} marked ${statusText(res.status)} at ${res.time}.`);
   };
 
   window.addAttendee = async function(){
-    var nameEl = document.getElementById('att-new-name');
-    var deptEl = document.getElementById('att-new-dept');
-    var roleEl = document.getElementById('att-new-role');
-    var name = String(nameEl?.value || '').trim();
-    var dept = String(deptEl?.value || '').trim() || 'Unassigned';
-    var role = String(roleEl?.value || '').trim() || 'Manual Attendee';
-    if(!name){ notify('Please enter the attendee name.', true); nameEl?.focus(); return; }
-    var status = statusByRule();
-    var t = nowTime();
-    var people = currentPeople();
-    var idx = people.findIndex(function(p){ return String(p.name).trim().toLowerCase() === name.toLowerCase(); });
-    var person = normalizePerson({name:name, dept:dept, department:dept, role:role, position:role, status:status, present:true, time:t, timeIn:t, scanTime:t, scannedAt:new Date().toISOString(), attendanceSource:'Manual Add Attendee'});
-    if(idx >= 0) people[idx] = Object.assign({}, people[idx], person);
-    else people.push(person);
-    saveVisiblePeople(people);
-    saveRecord(selectedDate(), people, 'Manual Add Attendee');
+    const nameEl = document.getElementById('att-new-name');
+    const deptEl = document.getElementById('att-new-dept');
+    const roleEl = document.getElementById('att-new-role');
+    const name = String(nameEl?.value || '').trim();
+    const dept = String(deptEl?.value || '').trim() || 'Unassigned';
+    const role = String(roleEl?.value || '').trim() || 'Manual Attendee';
+    if(!name){ notify('Please enter attendee name.', true); nameEl?.focus(); return; }
+    const date = selectedDate();
+    const res = recordPerson(date, {name, dept, department:dept, role, position:role, qrValue:'MANUAL_ADD:' + name}, 'Manual add attendee', true);
+    if(!res.ok && res.reason === 'locked'){
+      notify(name + ' already has locked attendance for ' + date + '. Existing record was not changed.', true);
+      return;
+    }
     if(nameEl) nameEl.value = '';
     if(deptEl) deptEl.value = '';
     if(roleEl) roleEl.value = '';
-    refresh();
-    notify(name + ' added as ' + status.toUpperCase() + '.');
+    notify(`${name} added and marked ${statusText(res.status)} at ${res.time}.`);
+  };
+
+  window.completeQRScan = async function(rawValue, dept){
+    const parsed = parseQR(rawValue);
+    const date = selectedDate();
+    const department = dept || parsed.dept || parsed.department || 'Unassigned';
+    if(!parsed.name){ notify('Invalid QR result.', true); return; }
+    const res = recordPerson(date, {
+      name:parsed.name,
+      dept:department,
+      department,
+      role:parsed.role || parsed.position || 'QR Attendee',
+      position:parsed.position || parsed.role || 'QR Attendee',
+      employeeId:parsed.employeeId || '',
+      qrValue:String(rawValue || '')
+    }, 'QR scan attendance', true);
+    try{ if(typeof window.stopQRScanner === 'function') await window.stopQRScanner(false); }catch(e){}
+    try{ if(typeof window.navigate === 'function') window.navigate('attendance'); }catch(e){}
+    if(!res.ok && res.reason === 'locked'){
+      notify(parsed.name + ' already has locked attendance for ' + date + '. QR scan ignored to prevent overwrite.', true);
+      return;
+    }
+    notify(`${parsed.name} marked ${statusText(res.status)} from QR at ${res.time}.`);
+  };
+
+  window.manualQRScan = function(){
+    const dept = document.getElementById('scan-department')?.value || '';
+    const raw = document.getElementById('manual-scan-value')?.value || '';
+    if(!raw.trim()){ notify('Enter scanned QR value first.', true); return; }
+    return window.completeQRScan(raw, dept);
   };
 
   window.saveAttendance = function(){
-    var date = selectedDate();
-    var people = currentPeople();
-    saveVisiblePeople(people);
+    const date = selectedDate();
+    const people = baseRosterFor(date);
     saveRecord(date, people, 'Saved attendance');
-    refresh();
-    notify('Attendance saved for ' + date + '.');
-  };
-
-  window.resetAttendees = async function(){
-    var date = selectedDate();
-    if(!confirm('Reset attendance for ' + date + ' back to ABSENT?')) return;
-    await resetAttendanceBackToAbsent(date, {clearOnline:true});
+    renderAll();
+    notify('Attendance saved permanently for ' + date + '.');
   };
 
   window.renderAttendanceHistory = function(){
-    var body = document.getElementById('attendance-history-body');
+    const body = document.getElementById('attendance-history-body');
     if(!body) return;
-    var records = readArr('att_records').filter(function(r){ return r && r.date; }).sort(function(a,b){ return String(b.date || '').localeCompare(String(a.date || '')); });
-    if(!records.length){ body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No attendance records yet.</td></tr>'; return; }
-    body.innerHTML = records.map(function(r){
-      var people = (Array.isArray(r.people) ? r.people : []).map(normalizePerson);
-      var counts = countByStatus(people);
-      var saved = r.savedAt ? new Date(r.savedAt).toLocaleString('en-PH') : '—';
-      var date = esc(r.date);
-      return '<tr onclick="showAttendanceDetail(\'' + date + '\')" style="cursor:pointer;">' +
-        '<td style="font-weight:800;color:var(--green);">' + date + ' <span style="font-size:10px;font-weight:900;">View</span></td>' +
-        '<td>' + counts.present + '</td>' +
-        '<td>' + counts.late + '</td>' +
-        '<td>' + counts.absent + '</td>' +
-        '<td style="font-size:11px;color:var(--text-muted);">' + esc(saved) + '<br><span style="font-size:10px;">' + esc(r.source || '') + '</span></td>' +
-        '<td><button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation();showAttendanceDetail(\'' + date + '\')">View</button> <button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteAttendanceRecord(\'' + date + '\')">Delete</button></td>' +
-      '</tr>';
+    const list = records().sort((a,b) => String(b.date).localeCompare(String(a.date)));
+    if(!list.length){
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No attendance records yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = list.map(r => {
+      const c = counts(r.people || []);
+      const d = esc(r.date);
+      const saved = r.savedAt ? new Date(r.savedAt).toLocaleString('en-PH') : '—';
+      return `<tr onclick="showAttendanceDetail('${d}')" style="cursor:pointer;">
+        <td style="font-weight:800;color:var(--green);">${d} <span style="font-size:10px;font-weight:900;">View Summary</span></td>
+        <td><span style="color:var(--green);font-weight:800;">${c.present}</span></td>
+        <td><span style="color:#E65100;font-weight:800;">${c.late}</span></td>
+        <td><span style="color:#C62828;font-weight:800;">${c.absent}</span></td>
+        <td style="font-size:11px;color:var(--text-muted);">${esc(saved)}<br><span style="font-size:10px;">${esc(r.source || '')}</span></td>
+        <td><button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation();showAttendanceDetail('${d}')">View</button> <button type="button" class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteAttendanceRecord('${d}')">Delete</button></td>
+      </tr>`;
     }).join('');
   };
 
   window.showAttendanceDetail = function(date){
-    var rec = readArr('att_records').find(function(r){ return String(r.date) === String(date); });
-    var people = (rec && Array.isArray(rec.people) ? rec.people : currentPeople()).map(normalizePerson);
-    var counts = countByStatus(people);
-    var setText = function(id, val){ var el = document.getElementById(id); if(el) el.textContent = val; };
-    var setHTML = function(id, val){ var el = document.getElementById(id); if(el) el.innerHTML = val; };
-    var chips = function(status){
-      var list = people.filter(function(p){ return statusOf(p) === status; });
-      if(!list.length) return '<span style="font-size:12px;color:var(--text-muted);">None</span>';
-      return list.map(function(p){
-        var detail = [p.dept || p.department, p.role || p.position, timeOf(p)].filter(Boolean).join(' · ');
-        return '<span class="att-person-chip c-' + status + '">' + esc(p.name) + (detail ? ' <span class="att-person-dept">' + esc(detail) + '</span>' : '') + '</span>';
-      }).join('');
-    };
-    setText('att-detail-date-title', date || '—');
-    setText('att-detail-total', people.length + ' attendee(s)');
-    setText('att-detail-present-num', counts.present || 0);
-    setText('att-detail-late-num', counts.late || 0);
-    setText('att-detail-absent-num', counts.absent || 0);
-    setHTML('att-detail-present-list', chips('present'));
-    setHTML('att-detail-late-list', chips('late'));
-    setHTML('att-detail-absent-list', chips('absent'));
+    date = date || selectedDate();
+    const rec = recordFor(date);
+    const people = rec ? normalizeRoster(rec.people || []) : baseRosterFor(date);
+    const c = counts(people);
+    const by = st => people.filter(p => statusOf(p) === st).map(p => {
+      const details = [p.dept || p.department, p.role || p.position, timeOf(p), p.attendanceSource].filter(Boolean).join(' · ');
+      return `<span class="att-person-chip c-${st}"><span>${esc(p.name)}</span>${details ? `<span class="att-person-dept">· ${esc(details)}</span>` : ''}</span>`;
+    }).join('') || '<span style="font-size:12px;color:var(--text-muted);">None</span>';
+    const setText = (id,val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    const setHTML = (id,val) => { const el = document.getElementById(id); if(el) el.innerHTML = val; };
+    setText('att-detail-date-title', date);
+    setText('att-detail-total', `${people.length} attendee(s) · Rule: ≤ 10:00 AM Present, after 10:00 AM Late`);
+    setText('att-detail-present-num', c.present || 0);
+    setText('att-detail-late-num', c.late || 0);
+    setText('att-detail-absent-num', c.absent || 0);
+    setHTML('att-detail-present-list', by('present'));
+    setHTML('att-detail-late-list', by('late'));
+    setHTML('att-detail-absent-list', by('absent'));
     document.getElementById('att-detail-overlay')?.classList.add('open');
   };
+  window.viewAttendanceSummary = function(){ window.showAttendanceDetail(selectedDate()); };
+  window.closeAttendanceDetail = function(){ document.getElementById('att-detail-overlay')?.classList.remove('open'); };
 
   window.deleteAttendanceRecord = async function(date){
     date = date || selectedDate();
     if(!confirm('Delete attendance record for ' + date + '?')) return;
-    writeArr('att_records', readArr('att_records').filter(function(r){ return String(r.date) !== String(date); }));
-    writeArr('ops_qr_scan_history', readArr('ops_qr_scan_history').filter(function(h){ return String(h.date) !== String(date); }));
-    if(String(date) === String(selectedDate())) saveVisiblePeople(blankDefaults());
-    try{ await clearOnlineDate(date); }catch(e){}
-    refresh();
+    writeArray('att_records', records().filter(r => String(r.date) !== String(date)));
+    writeArray('ops_qr_scan_history', readArray('ops_qr_scan_history').filter(h => String(h.date) !== String(date)));
+    if(String(date) === String(selectedDate())){
+      const reset = defaults().map(blankDefault);
+      writeArray('att_people', reset);
+      writeArray('ops_attendance_people', reset);
+      localStorage.setItem('att_people_date', String(date));
+    }
+    const db = getDb();
+    if(db){ try{ await db.ref('attendanceRecords/' + date).remove(); }catch(e){} }
+    document.getElementById('att-detail-overlay')?.classList.remove('open');
+    renderAll();
     notify('Attendance record deleted for ' + date + '.');
   };
 
-  function bootReset(){
-    var attDate = document.getElementById('att-date');
-    if(attDate && !attDate.value) attDate.value = todayISO();
-    if(localStorage.getItem(RESET_ONCE_KEY) !== 'done'){
-      localStorage.setItem(RESET_ONCE_KEY, 'done');
-      resetAttendanceBackToAbsent(selectedDate(), {clearOnline:true, silent:true}).then(function(){
-        notify('Attendance was reset back to ABSENT.');
-      });
+  window.resetAttendees = function(){
+    const date = selectedDate();
+    if(!confirm('Reset the unsaved/current attendance list for ' + date + '? Existing saved record will be replaced by defaults.')) return;
+    saveRecord(date, defaults().map(blankDefault), 'Reset attendance');
+    renderAll();
+    notify('Attendance reset for ' + date + '.');
+  };
+
+  window.renderQRScanHistory = function(){
+    const body = document.getElementById('qr-scan-history-body');
+    if(!body) return;
+    const history = readArray('ops_qr_scan_history').slice().reverse();
+    if(!history.length){ body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No QR scans yet.</td></tr>'; return; }
+    body.innerHTML = history.slice(0,50).map(h => `<tr><td>${esc(h.date || '')}</td><td>${esc(h.time || '')}</td><td>${esc(h.name || '')}</td><td>${esc(h.department || h.dept || '')}</td><td><span class="status-badge ${statusOf(h) === 'late' ? 'status-pending' : 'status-closed'}">${esc(statusText(statusOf(h)))}</span></td><td><code>${esc(h.qrValue || h.scanType || '')}</code></td></tr>`).join('');
+  };
+
+  window.submitDepartmentQRAttendance = async function(){
+    const portal = document.getElementById('qr-scan-portal');
+    const params = new URLSearchParams(location.search);
+    const dept = portal?.dataset.department || params.get('qr_department') || document.getElementById('scan-department')?.value || 'Unassigned';
+    const date = portal?.dataset.date || params.get('qr_date') || selectedDate();
+    const selected = document.getElementById('portal-attendee-select')?.value || '';
+    if(!selected){ alert('Please select your name/position first.'); return; }
+    let name = selected;
+    let role = '';
+    if(selected === '__new__'){
+      name = String(document.getElementById('portal-new-name')?.value || '').trim();
+      role = String(document.getElementById('portal-new-role')?.value || '').trim();
+      if(!name || !role){ alert('Please complete your full name and position.'); return; }
     }else{
-      refresh();
+      const found = baseRosterFor(date).find(p => personKey(p) === low(selected));
+      role = found?.role || found?.position || '';
+    }
+    const res = recordPerson(date, {name, dept, department:dept, role, position:role, qrValue:'DEPARTMENT_QR:' + dept}, 'QR department attendance', true);
+    if(!res.ok && res.reason === 'locked'){
+      alert(name + ' already has a locked attendance record for ' + date + '. It was not changed.');
+      return;
+    }
+    alert('Attendance submitted: ' + name + ' — ' + statusText(res.status) + ' at ' + res.time + '.');
+    try{ window.closeDepartmentQRPortal && window.closeDepartmentQRPortal(); }catch(e){}
+  };
+
+  window.cmiOnlineSubmitAttendance = async function(record){
+    const date = record.date || selectedDate();
+    const res = recordPerson(date, record, record.attendanceSource || record.scanType || 'QR attendance', true);
+    if(!res.ok && res.reason === 'locked') return {saved:false, duplicate:true, record:res.person};
+    return {saved:true, record:res.person};
+  };
+
+  window.cmiStartFirebaseAttendanceSync = function(date){
+    date = date || selectedDate();
+    const db = getDb();
+    if(!db){ setFirebaseStatus('Local mode: attendance still saves in this browser.', false); return; }
+    try{ if(firebaseListenerRef && firebaseListenerCb) firebaseListenerRef.off('value', firebaseListenerCb); }catch(e){}
+    clearInterval(refreshTimer);
+    firebaseListenerRef = db.ref('attendanceRecords/' + date);
+    firebaseListenerCb = snap => mergeRemoteRows(date, Object.values(snap.val() || {}));
+    firebaseListenerRef.on('value', firebaseListenerCb, err => console.warn('[Attendance Final] Firebase listener failed:', err));
+    refreshTimer = setInterval(() => firebaseListenerRef.once('value').then(firebaseListenerCb).catch(()=>{}), 5000);
+    setFirebaseStatus('Connected · Unified attendance rule active for ' + date + '.', true);
+  };
+
+  function injectUI(){
+    if(!document.getElementById('attendance-final-style')){
+      const style = document.createElement('style');
+      style.id = 'attendance-final-style';
+      style.textContent = `.att-card.attendance-locked{cursor:not-allowed!important;box-shadow:0 16px 36px rgba(7,92,54,.14)!important}.att-card.attendance-locked::after{content:'LOCKED';position:absolute;right:14px;top:12px;font-size:9px;font-weight:900;color:#0f5132;background:#fff8d7;border:1px solid rgba(245,200,0,.65);border-radius:999px;padding:4px 8px}.attendance-rule-note{font-size:12px;color:var(--text-muted);font-weight:700;margin-top:6px}`;
+      document.head.appendChild(style);
+    }
+    const header = document.querySelector('#page-attendance .page-header > div:last-child');
+    if(header && !document.getElementById('att-view-summary-btn')){
+      const btn = document.createElement('button');
+      btn.id = 'att-view-summary-btn';
+      btn.type = 'button';
+      btn.className = 'btn btn-outline btn-sm';
+      btn.textContent = 'View Summary';
+      btn.onclick = () => window.viewAttendanceSummary();
+      header.appendChild(btn);
+    }
+    const title = document.querySelector('#page-attendance .card-title span');
+    if(title && !document.getElementById('attendance-rule-note')){
+      const note = document.createElement('div');
+      note.id = 'attendance-rule-note';
+      note.className = 'attendance-rule-note';
+      note.textContent = 'General rule: before 10:00 AM or exactly 10:00 AM = Present; after 10:00 AM = Late. Once recorded, the attendee is locked.';
+      title.parentElement?.appendChild(note);
     }
   }
 
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootReset, {once:true});
-  else bootReset();
-  window.addEventListener('load', function(){ setTimeout(refresh, 200); }, {once:true});
+  function boot(){
+    injectUI();
+    const attDate = document.getElementById('att-date');
+    const qrDate = document.getElementById('dept-qr-date');
+    if(attDate && !attDate.value) attDate.value = todayISO();
+    if(qrDate && !qrDate.value) qrDate.value = attDate?.value || todayISO();
+    attDate?.addEventListener('change', () => { renderAll(); window.cmiStartFirebaseAttendanceSync(selectedDate()); });
+    qrDate?.addEventListener('change', () => { window.cmiStartFirebaseAttendanceSync(qrDate.value || selectedDate()); });
+    const normalized = normalizeRoster(readArray('att_people'));
+    if(normalized.length){ writeArray('att_people', normalized); writeArray('ops_attendance_people', normalized); }
+    renderAll();
+    window.cmiStartFirebaseAttendanceSync(selectedDate());
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
+  window.addEventListener('load', () => setTimeout(boot, 200), {once:true});
 })();
 </script>
+
 
 </body>
 </html>
