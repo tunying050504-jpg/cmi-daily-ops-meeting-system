@@ -1759,7 +1759,10 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
     <div id="page-concerns" class="page">
       <div class="page-header">
         <div class="page-title">Concerns Log</div>
-        <button class="btn btn-primary" onclick="openConcernModal()">+ Add Concern</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-danger btn-sm" onclick="deleteAllConcerns()" title="Delete all concern records">🗑 Delete All Concerns</button>
+          <button class="btn btn-primary" onclick="openConcernModal()">+ Add Concern</button>
+        </div>
       </div>
 
       <div class="search-bar">
@@ -2002,7 +2005,7 @@ body.qr-portal-active #login-screen,body.qr-portal-active .topbar,body.qr-portal
           <div class="form-group"><label>Status</label><select id="ap-status"><option>Open</option><option>Pending</option><option>Closed</option></select></div>
           <div class="form-group"><label>Remarks</label><input type="text" id="ap-remarks" placeholder="Updates / notes"></div>
         </div>
-        <div class="btn-row"><button class="btn btn-outline" onclick="clearActionPlanForm()">Clear</button><button class="btn btn-green" onclick="createActionsFromLatestAlerts()">Create From Latest Alerts</button><button class="btn btn-outline" onclick="exportActionPlansCSV()">Export CSV</button></div>
+        <div class="btn-row"><button class="btn btn-outline" onclick="clearActionPlanForm()">Clear</button><button class="btn btn-primary" onclick="saveActionPlan()">💾 Save Action Plan</button><button class="btn btn-outline" onclick="exportActionPlansCSV()">Export CSV</button></div>
       </div>
       <div class="card">
         <div class="card-title">Open Action Plans <span class="badge" id="action-plan-count">0</span></div>
@@ -8760,6 +8763,54 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
+<script id="cmi-delete-all-concerns-patch">
+(function(){
+  /**
+   * deleteAllConcerns()
+   * Clears every entry in the Concerns Log (ops_concerns) after confirmation.
+   * Also resets the action-plan concern picker and all related dashboard counts.
+   */
+  window.deleteAllConcerns = function(){
+    const concerns = (typeof window.getData === 'function')
+      ? window.getData('ops_concerns')
+      : JSON.parse(localStorage.getItem('ops_concerns') || '[]');
+
+    if(!Array.isArray(concerns) || concerns.length === 0){
+      if(typeof window.showNotif === 'function') window.showNotif('No concerns to delete.', true);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Delete ALL ' + concerns.length + ' concern record(s) in the Concerns Log?\n\nThis cannot be undone.'
+    );
+    if(!confirmed) return;
+
+    // Wipe the concerns store
+    if(typeof window.setData === 'function'){
+      window.setData('ops_concerns', []);
+    } else {
+      localStorage.setItem('ops_concerns', '[]');
+    }
+
+    // Refresh all views that show concern data
+    if(typeof window.renderConcerns === 'function')       window.renderConcerns();
+    if(typeof window.renderConcernCount === 'function')   window.renderConcernCount();
+    if(typeof window.renderConcernActionPicker === 'function') window.renderConcernActionPicker();
+    if(typeof window.renderActionPlans === 'function')    window.renderActionPlans();
+    if(typeof window.renderDashboard === 'function')      window.renderDashboard();
+
+    // Clear linked concern ID from the action plan form if one was selected
+    const apConcernId = document.getElementById('ap-concern-id');
+    if(apConcernId) apConcernId.value = '';
+    const apLinkedInfo = document.getElementById('ap-linked-concern-info');
+    if(apLinkedInfo){ apLinkedInfo.style.display = 'none'; apLinkedInfo.innerHTML = ''; }
+
+    if(typeof window.showNotif === 'function'){
+      window.showNotif('All concern records deleted successfully.');
+    }
+  };
+})();
+</script>
 
 </body>
 </html>
