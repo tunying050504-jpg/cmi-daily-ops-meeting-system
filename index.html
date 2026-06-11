@@ -3653,10 +3653,23 @@ window.addEventListener('load',()=>{
   function activeUserText(){ return localStorage.getItem('ops_demo_user') || 'Guest / Viewer'; }
   window.getCurrentUserInfo = function(){
     const stored = activeUserText();
+    // ops_current_user_role is written at login from the matched user record.
+    // Always trust it as the session role — Firebase listener sync can overwrite
+    // ops_registered_users with stale data, making found.role unreliable.
+    const sessionRole = localStorage.getItem('ops_current_user_role') || '';
     const all = (typeof getAllLoginUsers === 'function' ? getAllLoginUsers() : []);
     const name = stored.split(' / ')[0];
-    const found = all.find(u => (u.fullname || u.username) === name || stored.includes(u.username || ''));
-    const role = found ? (found.role || 'Registered User') : (stored.includes('Administrator') ? 'Administrator' : stored.includes('Supervisor') ? 'Supervisor' : stored.includes('Viewer') ? 'Viewer' : 'Registered User');
+    const found = all.find(u =>
+      (u.fullname || u.username) === name ||
+      (u.username && u.username.length > 0 && stored.includes(u.username))
+    );
+    const fallbackRole = found
+      ? (found.role || 'Registered User')
+      : (stored.includes('Administrator') ? 'Administrator'
+          : stored.includes('Supervisor') ? 'Supervisor'
+          : stored.includes('Viewer') ? 'Viewer'
+          : 'Registered User');
+    const role = sessionRole || fallbackRole;
     return { display: stored, name, role, department: found ? found.department : '' };
   };
   window.hasRole = function(roles){ return roles.includes(getCurrentUserInfo().role); };
@@ -3859,7 +3872,25 @@ window.addEventListener('load',()=>{
   // User management
   function renderUsersTableSafe(){ if(!document.getElementById('users-table-body')) return; renderUsersTable(); }
   window.renderUsersTable=function(){ const body=document.getElementById('users-table-body'); if(!body) return; const users=typeof getRegisteredUsers==='function'?getRegisteredUsers():[]; if(!users.length){ body.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No registered users yet.</td></tr>'; return; } body.innerHTML=users.map((u,i)=>`<tr><td>${u.fullname}</td><td>${u.email}</td><td>${u.username}</td><td>${u.department}</td><td><select class="role-chip" onchange="updateRegisteredUserRole(${i},this.value)" ${canAdmin()?'':'disabled'}><option ${u.role==='Registered User'?'selected':''}>Registered User</option><option ${u.role==='Supervisor'?'selected':''}>Supervisor</option><option ${u.role==='Viewer'?'selected':''}>Viewer</option><option ${u.role==='Administrator'?'selected':''}>Administrator</option></select></td><td>${canAdmin()?`<button class="btn btn-danger btn-sm" onclick="deleteRegisteredUser(${i})">Delete</button>`:'—'}</td></tr>`).join(''); };
-  window.updateRegisteredUserRole=function(i,role){ if(!canAdmin()) return; const users=getRegisteredUsers(); if(users[i]){ users[i].role=role; saveRegisteredUsers(users); renderUsersTable(); showNotif('User role updated.'); }};
+  window.updateRegisteredUserRole=function(i,role){
+    if(!canAdmin()) return;
+    const users=getRegisteredUsers();
+    if(users[i]){
+      users[i].role=role;
+      saveRegisteredUsers(users);
+      // If the updated user is the currently logged-in user, keep the session role in sync
+      const me = getCurrentUserInfo();
+      if((users[i].fullname && users[i].fullname === me.name) ||
+         (users[i].username && me.display.includes(users[i].username))){
+        localStorage.setItem('ops_current_user_role', role);
+        const demoStr = localStorage.getItem('ops_demo_user') || '';
+        const base = demoStr.split(' / ')[0];
+        localStorage.setItem('ops_demo_user', base + ' / ' + role);
+      }
+      renderUsersTable();
+      showNotif('User role updated.');
+    }
+  };
   window.deleteRegisteredUser=function(i){ if(!canAdmin()) return; const users=getRegisteredUsers(); users.splice(i,1); saveRegisteredUsers(users); renderUsersTable(); };
 
   function applyRoleUI(){ document.body.classList.toggle('hide-admin-only', !canAdmin()); }
@@ -8561,6 +8592,25 @@ window.addEventListener('load',()=>{
         var fbUsers = JSON.parse(raw._data);
         if(!Array.isArray(fbUsers)) return;
         var local = localReadUsers();
+
+        // ── Guard: preserve the role of the currently logged-in user ──
+        // Firebase sync must never silently downgrade an active session role.
+        var sessionRole = localStorage.getItem('ops_current_user_role') || '';
+        var sessionUser = localStorage.getItem('ops_current_user_data') || '';
+        if(sessionRole && sessionUser){
+          try{
+            var su = JSON.parse(sessionUser);
+            fbUsers = fbUsers.map(function(fu){
+              var isMe = (su.username && fu.username === su.username) ||
+                         (su.email    && fu.email    === su.email);
+              if(isMe && fu.role !== sessionRole){
+                fu = Object.assign({}, fu, { role: sessionRole });
+              }
+              return fu;
+            });
+          }catch(e){}
+        }
+
         // Only update if Firebase has newer or more users
         var fbStr = JSON.stringify(fbUsers);
         var localStr = JSON.stringify(local);
